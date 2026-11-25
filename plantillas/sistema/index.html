@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{APP_NAME}} · TI3062-{{NN}}</title>
+<meta name="description" content="Sistema de gestión, planificación y generación del informe del Proyecto Integrador TI3062 — {{ESTUDIANTE}} (NN {{NN}})">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family={{FUENTE_URL}}&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>
+  window.CFG = {
+    nn: "{{NN}}",
+    appName: "{{APP_NAME}}",
+    grafico: "{{GRAFICO}}",
+    pdfEstilo: "{{PDF_ESTILO}}",
+    rgb: [{{RGB}}],
+    dataFile: "data/proyecto-{{NN}}.json",
+    storageKey: "ti3062-{{NN}}-proyecto"
+  };
+</script>
+</head>
+<body class="layout-{{LAYOUT}} tarjeta-{{TARJETA}}">
+  <header class="barra">
+    <div class="marca">
+      <span class="logo" aria-hidden="true">{{INICIALES}}</span>
+      <div>
+        <strong>{{APP_NAME}}</strong>
+        <small>TI3062 · NN {{NN}} · <span id="nombre-estudiante"></span></small>
+      </div>
+    </div>
+    <div class="acciones-barra">
+      <span id="estado-guardado" class="chip">Guardado local</span>
+      <button class="btn primario" data-accion="pdf">Generar PDF</button>
+    </div>
+  </header>
+
+  <nav class="menu" id="menu" aria-label="Módulos"></nav>
+
+  <main id="contenido" tabindex="-1"></main>
+
+  <input type="file" id="input-importar" accept="application/json,.json" hidden>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
