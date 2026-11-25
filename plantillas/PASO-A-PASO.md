@@ -160,7 +160,7 @@ sudo bash bd/02-luks-respaldos.sh           # LUKS2 sobre el disco extra de 2 GB
 sudo bash bd/03-respaldo-cron.sh            # cron {{CRON}} + primer respaldo
 sudo bash bd/04-probar-restauracion.sh      # restauración probada (captura obligatoria)
 ```
-En CloudShell: `bash 03-snapshots-y-evidencias.sh` (snapshots de ambas instancias + tablas de evidencia).
+En CloudShell: `bash 03-snapshots-y-evidencias.sh` (snapshots de ambas instancias, una AMI de cada una ya endurecida para recuperarla en minutos, y tablas de evidencia).
 Justifica la zona `{{ZONA}}` en *Análisis cloud → Selección*.
 
 ## Fase 8 · Validación (H3 · criterio 4.1.5)
@@ -190,7 +190,7 @@ Registra **hallazgos** (falla, desviación, comportamiento esperado o riesgo) vi
 ## Antes de la defensa
 
 - [ ] Iniciar el laboratorio AWS ≥ 30 min antes; instancias **running**.
-- [ ] La IP pública de web cambia al reiniciar: actualiza `~/.ssh/config`, el README y *Implementación → URL de la app*.
+- [ ] web-{{NN}} usa IP elástica: no cambia al reiniciar el laboratorio (si la liberaste, actualiza `~/.ssh/config`, el README y *Implementación → URL de la app*).
 - [ ] Si cambió **tu** IP: en CloudShell `aws ec2 authorize-security-group-ingress --group-id <sg-web> --protocol tcp --port 22 --cidr <NUEVA_IP>/32` (y elimina la anterior); en web vuelve a ejecutar `sudo bash comun/01-hardening.sh web <NUEVA_IP>` (reescribe la regla SSH de {{FIREWALL}}). Hazlo **antes** de perder la sesión.
 - [ ] Tras reiniciar bd: `sudo bash bd/02-luks-respaldos.sh abrir` (o el respaldo nocturno falla — riesgo residual documentado).
 - [ ] Practica: modificar un dato en el sistema y regenerar el PDF; ejecutar cualquier P1–P8 en vivo.

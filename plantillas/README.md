@@ -8,7 +8,7 @@ Sistema web de gestión, planificación y generación automática del informe de
 | **Sistema publicado** | https://ti3062-{{NN}}.pages.dev |
 | **Repositorio** | https://github.com/{{GITHUB}}/ti3062-{{NN}} |
 | **Caso** | {{APP_CASO}} — {{TEMA_TITULO}} |
-| **App del caso (AWS)** | http://&lt;IP_PUBLICA_web-{{NN}}&gt;/ (cambia al reiniciar el laboratorio) |
+| **App del caso (AWS)** | http://&lt;IP_PUBLICA_web-{{NN}}&gt;/ (IP elástica fija) |
 
 ## Descripción
 

@@ -80,13 +80,17 @@ BD=$(aws ec2 run-instances --image-id "$AMI" --instance-type "$TIPO_INSTANCIA" -
 echo "BD=$BD" >> "$ESTADO"
 
 aws ec2 wait instance-running --instance-ids "$WEB" "$BD"
-WEB_PUB=$(aws ec2 describe-instances --instance-ids "$WEB" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-echo "WEB_PUB=$WEB_PUB" >> "$ESTADO"
+
+paso "IP elástica para $WEB_HOST (AWS Academy detiene las instancias al cerrar la sesión y la IP automática cambia)"
+WEB_EIP=$(aws ec2 allocate-address --domain vpc --tag-specifications "$(tag elastic-ip "eip-$WEB_HOST")" --query AllocationId --output text)
+aws ec2 associate-address --instance-id "$WEB" --allocation-id "$WEB_EIP" >/dev/null
+WEB_PUB=$(aws ec2 describe-addresses --allocation-ids "$WEB_EIP" --query 'Addresses[0].PublicIp' --output text)
+echo -e "WEB_EIP=$WEB_EIP\nWEB_PUB=$WEB_PUB" >> "$ESTADO"
 
 cat <<EOF
 
 ✅ Infraestructura creada. IDs guardados en $ESTADO
-   $WEB_HOST  pública $WEB_PUB  privada $WEB_IP
+   $WEB_HOST  pública $WEB_PUB (IP elástica, no cambia entre sesiones)  privada $WEB_IP
    $BD_HOST   privada $BD_IP (sin IP pública)
 Llave inicial: $DIR/$KEY.pem  (descárgala de CloudShell: Actions → Download file)
 

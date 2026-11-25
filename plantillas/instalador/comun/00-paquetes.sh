@@ -8,7 +8,8 @@ export DEBIAN_FRONTEND=noninteractive
 COMUNES="auditd audispd-plugins libpam-google-authenticator cryptsetup $FIREWALL curl"
 apt-get update
 if [[ "$ROL" == web ]]; then
-  apt-get install -y $COMUNES apache2 php libapache2-mod-php "$PHP_EXT" openssl nmap $( [[ $MOTOR == mariadb ]] && echo mariadb-client || echo postgresql-client )
+  CLIENTE_BD=$([[ $MOTOR == mariadb ]] && echo mariadb-client || echo postgresql-client)
+  apt-get install -y $COMUNES apache2 php libapache2-mod-php php-mbstring "$PHP_EXT" openssl nmap "$CLIENTE_BD"
 else
   apt-get install -y $COMUNES "$DB_PAQUETE"
 fi

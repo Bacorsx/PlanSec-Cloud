@@ -93,6 +93,7 @@ paso "MFA TOTP para el grupo $G_ADMIN (pam_google_authenticator)"
 cp -n /etc/pam.d/sshd /etc/pam.d/sshd.bak-ti3062
 sed -i 's/^@include common-auth/#@include common-auth  # TI3062: la llave reemplaza la contraseña; el 2º factor es TOTP/' /etc/pam.d/sshd
 grep -q pam_google_authenticator /etc/pam.d/sshd || echo "auth required pam_google_authenticator.so nullok" >> /etc/pam.d/sshd
+mkdir -p /run/sshd   # Ubuntu 24.04 usa ssh.socket: sshd -t/-T lo necesitan
 sshd -t && systemctl restart ssh
 sshd -T | grep -Ei "permitrootlogin|passwordauthentication|maxauthtries|maxsessions|clientalive|allowgroups"
 echo "  ➜ Ahora $U_ADMIN debe iniciar sesión y ejecutar: google-authenticator -t -d -f -r 3 -R 30 -w 3"
@@ -116,9 +117,11 @@ cat > /etc/audit/rules.d/50-ti3062.rules <<'EOF'
 -w /var/log/wtmp -p wa -k sesiones
 -w /var/log/btmp -p wa -k sesiones
 EOF
-systemctl enable --now auditd
-augenrules --load
-auditctl -l
+if systemctl enable --now auditd && augenrules --load; then
+  auditctl -l
+else
+  echo "  ⚠ auditd no pudo iniciar (revisa: journalctl -u auditd). Se continúa con el firewall."
+fi
 
 paso "Firewall de host: $FIREWALL (coherente con los Security Groups)"
 if [[ $ROL == web ]]; then

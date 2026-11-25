@@ -174,7 +174,7 @@ Ejecuta las pruebas P1–P8 (precargadas en el módulo *Validación*), sube capt
 | P7 Comando no autorizado en sudo | Denegado y registrado en auditd |
 | P8 Volumen LUKS cerrado | Datos ilegibles |
 
-> ⚠ En AWS Academy la IP pública de web cambia al reiniciar el laboratorio y el volumen LUKS debe abrirse a mano (`bd/02-luks-respaldos.sh abrir`).
+> ⚠ En AWS Academy las instancias se detienen al cerrar el laboratorio: web conserva su IP elástica, pero el volumen LUKS debe abrirse a mano (`bd/02-luks-respaldos.sh abrir`).
 
 ## Variabilidad
 

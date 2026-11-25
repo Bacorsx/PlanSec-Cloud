@@ -28,8 +28,13 @@ SQL
   mariadb "$DB_NOMBRE" -e "SHOW TABLES;"
 else
   PGV=$(ls /etc/postgresql | sort -V | tail -1); C=/etc/postgresql/$PGV/main
-  sed -i "s/^#\?listen_addresses.*/listen_addresses = 'localhost,$BD_IP'/" $C/postgresql.conf
-  grep -q "$DB_USUARIO" $C/pg_hba.conf || echo "host  $DB_NOMBRE  $DB_USUARIO  $WEB_IP/32  scram-sha-256" >> $C/pg_hba.conf
+  # Solo la IP privada: la administración local usa el socket Unix (peer)
+  sed -i "s/^#\?listen_addresses.*/listen_addresses = '$BD_IP'/" $C/postgresql.conf
+  if ! grep -q "$DB_USUARIO" $C/pg_hba.conf; then
+    { echo "# TI3062: la app solo desde web-$NN; cualquier otro origen se rechaza"
+      echo "host  $DB_NOMBRE  $DB_USUARIO  $WEB_IP/32  scram-sha-256"
+      echo "host  all  $DB_USUARIO  0.0.0.0/0  reject"; } >> $C/pg_hba.conf
+  fi
   systemctl restart postgresql
   runuser -u postgres -- psql -v ON_ERROR_STOP=1 <<SQL
 DO \$\$ BEGIN
@@ -38,7 +43,7 @@ END \$\$;
 ALTER ROLE $DB_USUARIO WITH LOGIN PASSWORD '$CLAVE' NOSUPERUSER NOCREATEDB NOCREATEROLE;
 SELECT 'CREATE DATABASE $DB_NOMBRE' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NOMBRE')\gexec
 SQL
-  runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$DB_NOMBRE" -f "$DIR/esquema.sql"
+  runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$DB_NOMBRE" < "$DIR/esquema.sql"   # stdin: postgres no lee /home
   runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$DB_NOMBRE" <<SQL
 REVOKE ALL ON DATABASE $DB_NOMBRE FROM PUBLIC;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;

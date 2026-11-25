@@ -23,10 +23,16 @@ if [[ -z "$DEV" ]]; then
   mkdir -p /var/lib/ti3062; DEV=/var/lib/ti3062/respaldos.luks
   [[ -f $DEV ]] || fallocate -l 1G $DEV
 fi
+if [[ -b "$DEV" ]]; then
+  if [[ -n "$(lsblk -no FSTYPE "$DEV" | tr -d '[:space:]')" || $(lsblk -no NAME "$DEV" | wc -l) -gt 1 ]] || findmnt -S "$DEV" >/dev/null; then
+    echo "⛔ $DEV ya tiene datos, particiones o está montado. Usa el disco vacío de 2 GB (lsblk -f)."; exit 1
+  fi
+fi
 lsblk -f; echo; echo "Se cifrará: $DEV  (se BORRARÁ su contenido)"
 read -rp "Escribe SI para continuar: " OK; [[ $OK == SI ]] || exit 1
 
-cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha256 "$DEV"
+echo "Define la frase de paso del volumen (guárdala en un lugar seguro; NO la captures):"
+cryptsetup luksFormat -q --verify-passphrase --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha256 "$DEV"
 cryptsetup open "$DEV" "$MAP"
 mkfs.ext4 -q -L respaldos /dev/mapper/$MAP
 mkdir -p /respaldos && mount /dev/mapper/$MAP /respaldos

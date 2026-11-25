@@ -55,7 +55,7 @@ def php_valor(v, ind=0):
 
 
 # ------------------------------------------------------------------ variantes
-def elegir_perfil(nn, nombre, github, semilla="", tema=None, motor=None, usados=None):
+def elegir_perfil(nn, nombre, github, semilla="", tema=None, motor=None, usados=None, firewall=None):
     h = hashlib.sha256(f"{nn}|{slug(nombre)}|{github}|{semilla}".encode()).hexdigest()
     r = random.Random(int(h, 16))
     if tema:
@@ -69,7 +69,7 @@ def elegir_perfil(nn, nombre, github, semilla="", tema=None, motor=None, usados=
     if motor and not m:
         sys.exit("Motor debe ser mariadb o postgresql")
     tarjeta = r.choice(C.ESTILOS_TARJETA)
-    return {
+    perfil = {
         "rng": r, "tema": t, "motor": m,
         "paleta": r.choice(C.PALETAS), "fuente": r.choice(C.FUENTES), "layout": r.choice(C.LAYOUTS),
         "tarjeta": tarjeta, "radio": {"redondeada": "14px", "recta": "2px", "sombra": "8px", "borde": "6px"}[tarjeta],
@@ -79,6 +79,9 @@ def elegir_perfil(nn, nombre, github, semilla="", tema=None, motor=None, usados=
         "variante_app": r.choice("abc"), "cron": f"{r.randint(0, 59)} {r.randint(1, 4)} * * *",
         "retencion": r.choice([7, 10, 14]),
     }
+    if firewall:
+        perfil["firewall"] = firewall
+    return perfil
 
 
 # ------------------------------------------------------------------ datos del proyecto
@@ -297,11 +300,11 @@ CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_{H['fk']} ON {H['tabla']} ({H['fk']}
 
 
 # ------------------------------------------------------------------ generación
-def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inicio=None, usados=None, forzar=False):
+def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inicio=None, usados=None, forzar=False, firewall=None):
     nn = f"{int(nn):02d}"
     if not 1 <= int(nn) <= 99:
         sys.exit("NN debe estar entre 01 y 99")
-    p = elegir_perfil(nn, nombre, github, semilla, tema, motor, usados)
+    p = elegir_perfil(nn, nombre, github, semilla, tema, motor, usados, firewall)
     t, m, g, pal = p["tema"], p["motor"], p["grupos"], p["paleta"]
     inicio = inicio or dt.date.today()
     destino = (Path(salida) / f"ti3062-{nn}").resolve()
@@ -370,6 +373,7 @@ def main():
     ap = argparse.ArgumentParser(description="Generador del Proyecto Integrador TI3062")
     ap.add_argument("--nn"); ap.add_argument("--nombre"); ap.add_argument("--github")
     ap.add_argument("--tema"); ap.add_argument("--motor", choices=["mariadb", "postgresql"])
+    ap.add_argument("--firewall", choices=["ufw", "nftables"])
     ap.add_argument("--semilla", default="", help="Cambia la combinación de variantes")
     ap.add_argument("--inicio", help="Fecha de inicio del cronograma AAAA-MM-DD (por defecto hoy)")
     ap.add_argument("--salida", default=str(BASE / "salida"))
@@ -387,13 +391,13 @@ def main():
         with open(a.lote, encoding="utf-8-sig", newline="") as fh:
             filas = list(csv.DictReader(fh))
     elif a.nn and a.nombre and a.github:
-        filas = [{"nn": a.nn, "nombre": a.nombre, "github": a.github, "tema": a.tema or "", "motor": a.motor or ""}]
+        filas = [{"nn": a.nn, "nombre": a.nombre, "github": a.github, "tema": a.tema or "", "motor": a.motor or "", "firewall": a.firewall or ""}]
     else:
         ap.error("Indica --nn --nombre --github, o --lote archivo.csv")
     usados = set()
     for f in filas:
         d, res = generar(f["nn"], f["nombre"].strip(), f["github"].strip(), a.salida, a.semilla, (f.get("tema") or None), (f.get("motor") or None),
-                         inicio, usados, a.forzar)
+                         inicio, usados, a.forzar, (f.get("firewall") or a.firewall or None))
         usados.add(res["tema"])
         if len(usados) >= len(C.TEMAS):
             usados.clear()
