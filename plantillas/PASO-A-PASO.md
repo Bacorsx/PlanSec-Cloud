@@ -52,6 +52,7 @@ flowchart LR
 
 En el sistema, revisa y **reescribe con tus palabras** lo que viene precargado:
 
+- **Diccionario**: mientras rellenas, usa las listas desplegables, los paneles **💡 Sugerencias** bajo cada tabla y **💡 Sugerir texto** en los campos largos. Reescribe con tus palabras lo que agregues. El panel de resumen marca qué falta del contenido mínimo y te lleva al módulo.
 - **Equipo y roles**: registra a cada integrante con su cargo y rol (Administración, Desarrollo, Auditoría). En *Gestión y planificación* elige el **responsable** de cada tarea desde esa lista.
 - **Contenido del informe**: edita el título, la introducción (propósito, alcance, escenario), el título y párrafo de cada sección, el pie de página y las referencias. Todo lo que sale en el PDF se puede cambiar ahí o en los otros módulos.
 - **Problemática**: contexto, actores, procesos, necesidades, impacto. Ajusta el caso si tu docente te asignó otro.

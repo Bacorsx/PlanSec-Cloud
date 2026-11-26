@@ -23,6 +23,7 @@ import argparse, csv, datetime as dt, hashlib, json, os, random, re, shutil, sys
 from pathlib import Path
 
 import catalogo as C
+import diccionario as D
 
 BASE = Path(__file__).resolve().parent
 PLANT = BASE / "plantillas"
@@ -85,7 +86,19 @@ def elegir_perfil(nn, nombre, github, semilla="", tema=None, motor=None, usados=
 
 
 # ------------------------------------------------------------------ datos del proyecto
-def construir_datos(p, nn, nombre, github, inicio):
+OBLIG = ["SC-7", "AC-6", "IA-2(1)", "SC-28", "AU-2", "CP-9", "AC-12"]
+REQMAP = {"SC-7": "RNF-01", "IA-2(1)": "RNF-02", "AC-6": "RNF-03", "CP-9": "RNF-04", "CP-10": "RNF-04", "CM-7": "RNF-05", "AU-2": "RNF-06", "AU-6": "RNF-06", "SC-28": "RNF-04", "IA-5": "RNF-03", "AC-17": "RNF-02", "AC-12": "RNF-08",
+          "AC-3": "RF-06", "AC-7": "RNF-08", "AC-8": "RF-06", "IA-2": "RF-06", "IA-5(1)": "RNF-08", "SC-8": "RNF-07", "SC-23": "RNF-08", "SI-10": "RF-02", "SI-11": "RF-02", "AU-9": "RNF-06",
+          "AC-2": "RF-06", "AC-5": "RNF-03", "AC-11": "RNF-08", "AU-3": "RNF-06", "AU-8": "RNF-06", "AU-11": "RNF-06", "AU-12": "RNF-06", "CM-2": "RNF-04", "CM-6": "RNF-01",
+          "CP-2": "RNF-04", "CP-4": "RNF-04", "CP-6": "RNF-04", "CP-7": "RNF-04", "IR-4": "RNF-06", "IR-6": "RNF-06", "RA-3": "RNF-01", "RA-5": "RNF-01", "SC-5": "RNF-05",
+          "SC-12": "RNF-07", "SC-13": "RNF-07", "SI-2": "RNF-01", "SI-4": "RNF-06", "AU-9(2)": "RNF-06", "IA-2(2)": "RNF-02"}
+ALT_COSTO = {"Microsoft Azure": "≈ 19,50 (2×B1s + discos + IP pública) — verificar",
+             "Google Cloud": "≈ 16,00 (2×e2-micro + discos + IP externa) — verificar",
+             "Oracle Cloud (OCI)": "≈ 0 en Always Free / ≈ 12 de pago — verificar"}
+
+
+def construir_datos(p, nn, nombre, github, inicio, pools=None):
+    pools = {} if pools is None else pools
     r, t, m = p["rng"], p["tema"], p["motor"]
     g = p["grupos"]
     nnip = str(int(nn))
@@ -128,6 +141,7 @@ def construir_datos(p, nn, nombre, github, inicio):
         ("Múltiples roles con distinto nivel de acceso", "Grupos funcionales con sudoers específicos y separación de funciones"),
         ("Presupuesto limitado y entorno AWS Academy sin IAM/CloudTrail", "Controles a nivel de SO y Security Groups; instancias t3.micro"),
     ]
+    pools["caracteristicas"] = [{"id": f"C{i+1}", "descripcion": a, "diseno": b} for i, (a, b) in enumerate(caract_pool)]
     sel = r.sample(caract_pool, r.choice([4, 5]))
     caracteristicas = [{"id": f"C{i+1}", "descripcion": a, "diseno": b} for i, (a, b) in enumerate(sel)]
 
@@ -170,9 +184,7 @@ def construir_datos(p, nn, nombre, github, inicio):
     ]
 
     aws_costo = "≈ 20,30 (2×t3.micro 15,18 + EBS 1,44 + IPv4 pública 3,65) — verificar"
-    alt_costo = {"Microsoft Azure": "≈ 19,50 (2×B1s + discos + IP pública) — verificar",
-                 "Google Cloud": "≈ 16,00 (2×e2-micro + discos + IP externa) — verificar",
-                 "Oracle Cloud (OCI)": "≈ 0 en Always Free / ≈ 12 de pago — verificar"}[p["alt"]["nombre"]]
+    alt_costo = ALT_COSTO[p["alt"]["nombre"]]
     proveedores = [
         {"nombre": "AWS", "servicio": "Amazon EC2 t3.micro (Ubuntu 24.04) + VPC con subred pública/privada, IGW y Security Groups",
          "seguridad": "Security Groups con estado, subred privada sin ruta a Internet; (en Academy) sin IAM/CloudTrail: controles a nivel SO",
@@ -183,6 +195,7 @@ def construir_datos(p, nn, nombre, github, inicio):
          "riesgos": "Pérdida de IP pública al reiniciar; recursos detenidos al terminar la sesión"},
         dict(p["alt"], costo=alt_costo),
     ]
+    pools["proveedores"] = proveedores[:1] + [dict(a, costo=ALT_COSTO[a["nombre"]]) for a in C.PROVEEDORES_ALT]
     zona, zona_j = p["zona"]
     seleccion = {
         "proveedor": "AWS",
@@ -200,10 +213,9 @@ def construir_datos(p, nn, nombre, github, inicio):
         {"componente": f"Base de datos ({m['puerto']})", "acceso": f"Solo app_{nn} desde {'10.' + nnip + '.1.10'} con TLS obligatorio", "control": f"sg-bd-{nn} con origen sg-web-{nn}, GRANT mínimo, TLS con certificado verificado", "rol": "Mínimo privilegio y cifrado en tránsito (AC-6, SC-7, SC-8)"},
         {"componente": "API/consola AWS", "acceso": "Cuenta AWS Academy del estudiante", "control": "Credenciales temporales de la sesión del laboratorio", "rol": "Limitación del entorno (L1)"},
     ]
-    oblig = ["SC-7", "AC-6", "IA-2(1)", "SC-28", "AU-2", "CP-9", "AC-12"]
+    oblig = OBLIG
     extra = r.sample([c for c in C.CONTROLES if c["codigo"] not in oblig], r.choice([1, 2]))
-    reqmap = {"SC-7": "RNF-01", "IA-2(1)": "RNF-02", "AC-6": "RNF-03", "CP-9": "RNF-04", "CP-10": "RNF-04", "CM-7": "RNF-05", "AU-2": "RNF-06", "AU-6": "RNF-06", "SC-28": "RNF-04", "IA-5": "RNF-03", "AC-17": "RNF-02", "AC-12": "RNF-08",
-              "AC-3": "RF-06", "AC-7": "RNF-08", "AC-8": "RF-06", "IA-2": "RF-06", "IA-5(1)": "RNF-08", "SC-8": "RNF-07", "SC-23": "RNF-08", "SI-10": "RF-02", "SI-11": "RF-02", "AU-9": "RNF-06"}
+    reqmap = REQMAP
     controles = []
     for c in [x for x in C.CONTROLES if x["codigo"] in oblig] + C.CONTROLES_APP + extra:
         controles.append({"codigo": c["codigo"], "nombre": c["nombre"], "riesgo": c["riesgo"], "punto": c["punto"].replace("NN", nn),
@@ -413,6 +425,60 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria_app (fecha);
 """
 
 
+def construir_diccionario(p, nn, datos, pools):
+    """Diccionario adaptado a la plantilla: todos los controles y la información base, con los datos del estudiante."""
+    t, m, g = p["tema"], p["motor"], p["grupos"]
+    nnip = str(int(nn))
+    val = {"NN": nn, "NNIP": nnip, "APP": t["nombre_app"], "MOTOR": m["nombre"], "PUERTO": m["puerto"],
+           "WEB_IP": f"10.{nnip}.1.10", "BD_IP": f"10.{nnip}.2.10", "TABLA_P": t["padre"]["tabla"], "TABLA_H": t["hijo"]["tabla"],
+           "U_ADMIN": f"{g['u_admin']}{nn}", "U_DEV": f"{g['u_dev']}{nn}", "U_AUDIT": f"{g['u_audit']}{nn}",
+           "G_ADMIN": f"{g['admin']}_{nn}", "G_DEV": f"{g['dev']}_{nn}", "G_AUDIT": f"{g['audit']}_{nn}",
+           "FIREWALL": p["firewall"], "ZONA": p["zona"][0], "ALT": p["alt"]["nombre"], "CRON": p["cron"], "RETENCION": p["retencion"],
+           "TITULO": t["titulo"][0].lower() + t["titulo"][1:], "CONTEXTO": t["contexto"]}
+    R = lambda x: D.rellenar(x, val)
+    obligatorios = OBLIG + [c["codigo"] for c in C.CONTROLES_APP]
+    relevantes = D.RELEVANTES.get(t["patron"], [])
+    controles = []
+    for c in D.todos_los_controles():
+        fam, desc, ev, pr = D.DETALLE[c["codigo"]]
+        controles.append(R({"codigo": c["codigo"], "nombre": c["nombre"], "familia": fam, "descripcion": desc, "riesgo": c["riesgo"],
+                            "punto": c["punto"].replace("NN", nn), "capa": c["capa"], "req": REQMAP.get(c["codigo"], ""), "evidencia": ev,
+                            "prueba": pr, "obligatorio": c["codigo"] in obligatorios, "relevante": c["codigo"] in relevantes}))
+    controles.sort(key=lambda c: (not c["obligatorio"], not c["relevante"], c["codigo"]))
+    fila_control = lambda c: {"codigo": c["codigo"], "nombre": c["nombre"], "riesgo": c["riesgo"], "punto": c["punto"], "capa": c["capa"],
+                              "req": c["req"], "impacto": "", "estado": "Planificado"}
+    rnf_extra = [
+        {"id": "RNF-09", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "Los relojes de web y bd están sincronizados y los registros se guardan en UTC.", "control": "AU-8"},
+        {"id": "RNF-10", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "Los paquetes del sistema se mantienen actualizados con parches de seguridad.", "control": "SI-2"},
+        {"id": "RNF-11", "tipo": "RNF", "categoria": "Disponibilidad", "descripcion": f"Los registros y respaldos se conservan al menos {p['retencion']} días.", "control": "AU-11"},
+        {"id": "RNF-12", "tipo": "RNF", "categoria": "Disponibilidad", "descripcion": "El servicio se puede reconstruir desde una AMI endurecida en menos de 1 hora.", "control": "CP-10"},
+    ]
+    hallazgos = datos["hallazgos"] + [dict(R(h), id=f"HZ-{i + 2:02d}") for i, h in enumerate(D.HALLAZGOS[1:])]
+    bloques = {
+        "hitos": datos["hitos"], "tareas": datos["tareas"], "personal": datos["personal"],
+        "caracteristicas": pools.get("caracteristicas", datos["caracteristicas"]),
+        "requerimientos": datos["requerimientos"] + rnf_extra,
+        "dependencias": datos["dependencias"], "limitaciones": datos["limitaciones"],
+        "proveedores": pools.get("proveedores", datos["proveedores"]), "componentes": datos["componentes"],
+        "controles": [fila_control(c) for c in controles], "sg": datos["sg"], "bitacora": datos["bitacora"], "pruebas": datos["pruebas"],
+        "hallazgos": hallazgos, "cia": datos["cia"],
+        "riesgos": [dict(x, id=f"R{i + 1}") for i, x in enumerate(C.RIESGOS_RESIDUALES)],
+        "gobierno": datos["gobierno"],
+        "mejoras": [dict(x, id=f"M{i + 1}", evidencia="") for i, x in enumerate(C.MEJORAS)],
+    }
+    requisitos = [dict(q, ids=obligatorios) if q.get("ids") == "obligatorios" else q for q in D.REQUISITOS]
+    return {
+        "version": 1, "nn": nn, "app": t["nombre_app"], "patron": t["patron"],
+        "controles": controles, "obligatorios": obligatorios, "relevantes": relevantes,
+        "bloques": bloques, "claves": D.CLAVES,
+        "textos": R(D.TEXTOS),
+        "listas": {"problema.actores": t["actores"], "problema.procesos": t["procesos"], "problema.necesidades": datos["problema"]["necesidades"],
+                   "informe.referencias": datos["informe"]["referencias"]},
+        "requisitos": requisitos,
+        "glosario": [{"termino": a, "definicion": b} for a, b in D.GLOSARIO],
+    }
+
+
 # ------------------------------------------------------------------ generación
 def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inicio=None, usados=None, forzar=False, firewall=None):
     nn = f"{int(nn):02d}"
@@ -458,9 +524,11 @@ def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inici
     for doc in ("README.md", "PASO-A-PASO.md"):
         (destino / doc).write_text(render((PLANT / doc).read_text(encoding="utf-8"), ctx, doc), encoding="utf-8", newline="\n")
 
-    datos = construir_datos(p, nn, nombre, github, inicio)
+    pools = {}
+    datos = construir_datos(p, nn, nombre, github, inicio, pools)
     (destino / "data").mkdir(exist_ok=True)
     (destino / "data" / f"proyecto-{nn}.json").write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
+    (destino / "data" / f"diccionario-{nn}.json").write_text(json.dumps(construir_diccionario(p, nn, datos, pools), ensure_ascii=False, indent=1), encoding="utf-8")
 
     tema_php = {"nombre_app": t["nombre_app"], "titulo": t["titulo"], "patron": t["patron"], "vocab": t.get("vocab", {}),
                 "padre": {k: t["padre"][k] for k in ("tabla", "titulo", "singular")} | {"campos": [list(c) for c in t["padre"]["campos"]]},

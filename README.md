@@ -35,7 +35,7 @@ flowchart LR
 ```
 
 1. **Generación** (en tu PC): `generar.py` toma el número de lista (NN), el nombre y el usuario de GitHub. Con esos datos calcula una semilla y elige una combinación del `catalogo.py`; luego rellena las plantillas.
-2. **Sistema de gestión** (estático, sin backend): reemplaza el informe tradicional. Tiene 10 módulos (resumen con indicadores automáticos, equipo y roles con responsables, planificación con cronograma, problemática y requerimientos, análisis multicloud, controles NIST SP 800-53, implementación con bitácora y capturas, validación y cierre, contenido del informe editable —portada, introducción, títulos y párrafos de cada sección, pie y referencias—, documento). Guarda en el navegador, exporta e importa JSON y **genera el PDF desde los datos** con jsPDF.
+2. **Sistema de gestión** (estático, sin backend): reemplaza el informe tradicional. Tiene 11 módulos (resumen con indicadores automáticos, equipo y roles con responsables, planificación con cronograma, problemática y requerimientos, análisis multicloud, controles NIST SP 800-53, implementación con bitácora y capturas, validación y cierre, contenido del informe editable —portada, introducción, títulos y párrafos de cada sección, pie y referencias—, diccionario, documento). Mientras se rellena **sugiere** contenido desde el diccionario de la plantilla. Guarda en el navegador, exporta e importa JSON y **genera el PDF desde los datos** con jsPDF.
 3. **AWS es el receptor del despliegue**: los scripts de `instalador/aws/` crean la red y las instancias. Los de `instalador/web`, `instalador/bd` y `instalador/comun` dejan cada servidor configurado y endurecido.
 4. **App del caso** (en web-NN): aplicación PHP con funciones propias de su negocio según el patrón de la temática, usuarios por rol, auditoría inmutable y un panel en vivo que consulta bd-NN por TLS verificado.
 5. **Guía**: `PASO-A-PASO.md` trae los comandos exactos con las IP, nombres de usuarios y grupos de ese estudiante.
@@ -192,6 +192,22 @@ Ejecuta las pruebas P1–P13 (precargadas en el módulo *Validación*), sube cap
 | Infraestructura | MariaDB/PostgreSQL · ufw/nftables · us-east-1a/b/c · 4 esquemas de grupos y usuarios · horario y retención del respaldo |
 | Contenido | Proveedor alternativo (Azure, GCP, OCI), características, controles NIST extra, riesgos y mejoras |
 
+### Diccionario base (sugerencias mientras se rellena)
+
+`diccionario.py` es la fuente única de la información base del informe:
+- **46 controles NIST SP 800-53 Rev. 5** con familia, descripción, riesgo, punto de aplicación, capa, requerimiento, evidencia sugerida y prueba asociada;
+- bancos de texto por módulo: características, requerimientos, hallazgos típicos, riesgos, mejoras, Gobierno TI, introducción, conclusiones, glosario y referencias;
+- el **contenido mínimo del informe** según la pauta y la guía U4.
+
+`generar.py` lo adapta a cada plantilla (NN, IP, motor, usuarios, grupos, temática) y lo publica como `data/diccionario-NN.json`. En el sistema de gestión:
+- las celdas clave ofrecen una **lista desplegable**, y al escribir un código conocido (por ejemplo `AC-7`) se completan solo las celdas vacías de la fila;
+- bajo cada tabla aparece un panel **💡 Sugerencias** con lo que aún no está incluido y un botón para agregar las obligatorias;
+- los campos de texto tienen **💡 Sugerir texto**;
+- el módulo **Diccionario** permite buscar controles, agregarlos y revisar el contenido mínimo y el glosario;
+- el panel de resumen enlaza cada requisito pendiente con el módulo donde se completa.
+
+Las sugerencias nunca sobrescriben lo que ya escribiste. Si falta el archivo, el sistema funciona igual, sin sugerencias.
+
 ### Temáticas de la app del caso
 
 | Patrón | Funciones | Temáticas |
@@ -210,8 +226,9 @@ Todas incluyen login con roles (administrador, operador, auditor), bloqueo tras 
 
 ```
 generar.py            Generador (CLI)
-catalogo.py           Paletas, controles NIST (infraestructura y app), riesgos, mejoras, proveedores
+catalogo.py           Paletas, tipografías, grupos, motores, zonas y proveedores (importa controles, riesgos y mejoras del diccionario)
 temas.py              Temáticas, patrones de negocio y requerimientos por patrón
+diccionario.py        Controles NIST, textos base, hallazgos, glosario y contenido mínimo del informe
 plantillas/
   sistema/            index.html, app.js (módulos + PDF), styles.css
   app-caso/publico/   index.php, api.php (en vivo), app.js, estilo.css  → webroot

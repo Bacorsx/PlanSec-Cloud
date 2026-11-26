@@ -23,11 +23,16 @@ La infraestructura se despliega en **AWS** (VPC-{{NN}} 10.{{NNIP}}.0.0/16) con `
 - **Datos en vivo y cifrados**: el panel consulta cada 5 s a bd-{{NN}} por **TLS 1.2/1.3 con certificado verificado** (CA propia del proyecto) y muestra el camino del dato.
 - **4 tablas relacionadas** en {{MOTOR_NOMBRE}}: `usuarios_app`, `{{TABLA_PADRE}}`, `{{TABLA_HIJO}}` y `auditoria_app` (registro que la app no puede borrar).
 
+## Diccionario y sugerencias
+
+`data/diccionario-{{NN}}.json` trae los controles NIST y la información base del informe adaptados a este proyecto. Mientras rellenas el sistema verás listas desplegables, autocompletado de filas, paneles **💡 Sugerencias** y botones **💡 Sugerir texto**. En el módulo **Diccionario** puedes buscar controles y revisar el contenido mínimo exigido.
+
 ## Estructura
 
 ```
 index.html · app.js · styles.css   Sistema de gestión (Cloudflare Pages y copia en web-{{NN}}/gestion)
 data/proyecto-{{NN}}.json          Datos del proyecto (importables para restaurar todo)
+data/diccionario-{{NN}}.json       Diccionario base: controles NIST, textos sugeridos y contenido mínimo
 app-caso/publico · app-caso/privado   App PHP del caso: webroot mínimo y lógica fuera del webroot
 instalador/aws/                    Creación de VPC, SG, EC2, NAT temporal y snapshots (AWS CLI/CloudShell)
 instalador/comun/ web/ bd/         Paquetes, hardening, MFA, auditd, firewall, BD, LUKS, respaldo

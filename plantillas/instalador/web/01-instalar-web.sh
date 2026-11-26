@@ -77,7 +77,7 @@ install -m 640 -o root -g www-data "$RAIZ"/app-caso/privado/*.php $PRIV/
 install -m 644 "$RAIZ"/app-caso/publico/* /var/www/html/
 install -d /var/www/html/gestion/data
 install -m 644 "$RAIZ"/index.html "$RAIZ"/app.js "$RAIZ"/styles.css /var/www/html/gestion/
-install -m 644 "$RAIZ"/data/proyecto-$NN.json /var/www/html/gestion/data/
+install -m 644 "$RAIZ"/data/proyecto-$NN.json "$RAIZ"/data/diccionario-$NN.json /var/www/html/gestion/data/
 chown -R root:www-data /var/www/html; find /var/www/html -type d -exec chmod 755 {} +
 apache2ctl configtest && systemctl restart apache2
 

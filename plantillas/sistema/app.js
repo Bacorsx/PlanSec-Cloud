@@ -5,6 +5,7 @@
 const CFG = window.CFG;
 let datos = null;
 let moduloActual = 'resumen';
+let dic = null;   // diccionario de la plantilla (data/diccionario-NN.json): controles e información base sugerida
 
 /* ---------------- Esquema de módulos ---------------- */
 const ROLES = ['Administración', 'Desarrollo', 'Auditoría'];
@@ -97,6 +98,7 @@ const MODULOS = [
     { tipo: 'obj', ruta: 'informe', titulo: 'Referencias y pie de página', campos: [
       { k: 'incluirRef', l: 'Incluir referencias', t: ['Sí', 'No'] }, { k: 'refTitulo', l: 'Título de la sección de referencias' },
       { k: 'referencias', l: 'Referencias (una por línea)', t: 'lista' }, { k: 'pie', l: 'Pie de página (usa {estudiante} {nn} {sistema})' }] }] },
+  { id: 'diccionario', titulo: 'Diccionario', bloques: [{ tipo: 'diccionario' }] },
   { id: 'documento', titulo: 'Documento y datos', bloques: [
     { tipo: 'obj', ruta: 'meta', titulo: 'Portada', campos: [
       { k: 'estudiante', l: 'Estudiante' }, { k: 'nn', l: 'Número de lista (NN)' }, { k: 'carrera', l: 'Carrera' }, { k: 'sede', l: 'Sede' },
@@ -140,6 +142,17 @@ function guardar() {
   }
 }
 
+async function cargarDiccionario() {
+  if (!CFG.dicFile) return;
+  try { const r = await fetch(CFG.dicFile, { cache: 'no-store' }); if (r.ok) dic = await r.json(); } catch (e) { dic = null; }
+}
+function aviso(t) {
+  let el = document.getElementById('aviso');
+  if (!el) { el = document.createElement('div'); el.id = 'aviso'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = t; el.classList.add('visible'); clearTimeout(aviso.t); aviso.t = setTimeout(() => el.classList.remove('visible'), 2600);
+}
+const norm = (x) => String(x ?? '').trim().toLowerCase();
+
 async function cargar() {
   let local = null;
   try { local = JSON.parse(localStorage.getItem(CFG.storageKey) || 'null'); } catch (e) { local = null; }
@@ -170,7 +183,25 @@ function indicadores() {
   };
 }
 
+function evaluarRequisito(q) {
+  const v = datos[q.ruta];
+  if (q.tipo === 'min') {
+    let arr = Array.isArray(v) ? v : [];
+    if (q.filtro) arr = arr.filter((f) => Object.entries(q.filtro).every(([a, b]) => f[a] === b));
+    return arr.length >= q.min && (!q.max || arr.length <= q.max);
+  }
+  if (q.tipo === 'ids') { const st = new Set((v || []).map((f) => f[q.clave])); return (q.ids || []).every((x) => st.has(x)); }
+  if (q.tipo === 'campo') { const o = v || {}; return q.campos.every((c) => (Array.isArray(o[c]) ? o[c].length > 0 : String(o[c] || '').trim() !== '')); }
+  if (q.tipo === 'evidencia') return (v || []).filter((f) => f.imagen).length >= (q.min || 1);
+  return false;
+}
 function chequeoPauta(k) {
+  if (dic && Array.isArray(dic.requisitos)) {
+    const c = dic.requisitos.map((q) => ({ cond: evaluarRequisito(q), txt: q.txt, modulo: q.modulo }));
+    const nombres = (datos.personal || []).map((p) => p.nombre).filter(Boolean);
+    c.push({ cond: nombres.length >= 1 && (datos.tareas || []).every((t) => nombres.includes(t.responsable)), txt: 'Responsables de tareas asignados desde el equipo', modulo: 'planificacion' });
+    return c;
+  }
   const c = [];
   const ok = (cond, txt) => c.push({ cond, txt });
   ok((datos.hitos || []).length >= 3, '≥3 hitos');
@@ -237,7 +268,7 @@ function renderResumen() {
     <div class="kpi"><b>${k.evidencias}/${k.bitacora}</b><span>Registros de bitácora con captura</span></div>
   </div>
   <div class="graficos" style="margin-top:16px">${graf}</div>
-  <div class="tarjeta"><h2>Cumplimiento mínimo de la pauta</h2><ul>${chk.map((c) => `<li>${c.cond ? '✅' : '⬜'} ${esc(c.txt)}</li>`).join('')}</ul></div>`;
+  <div class="tarjeta"><h2>Cumplimiento mínimo de la pauta${dic ? ' (contenido mínimo del informe)' : ''}</h2><ul class="chequeo">${chk.map((c) => `<li>${c.cond ? '✅' : '⬜'} ${esc(c.txt)}${!c.cond && c.modulo ? ` <button class="btn mini" data-mod="${esc(c.modulo)}">Completar</button>` : ''}</li>`).join('')}</ul></div>`;
 }
 
 function inputCelda(col, valor, ruta, i) {
@@ -255,7 +286,96 @@ function inputCelda(col, valor, ruta, i) {
   if (col.t === 'area') return `<textarea ${attr}>${esc(valor)}</textarea>`;
   if (col.t === 'date') return `<input type="date" ${attr} value="${esc(valor)}">`;
   if (col.t === 'img') return `<input type="file" accept="image/*" ${attr} data-img="1">${valor ? `<img class="thumb" src="${valor}" alt="captura"><button class="btn mini peligro" data-quitar-img="1" ${attr}>Quitar</button>` : ''}`;
-  return `<input ${attr} value="${esc(valor)}">`;
+  const lista = listaPara(ruta, col.k);
+  return `<input ${attr} value="${esc(valor)}"${lista ? ` list="${lista}" autocomplete="off"` : ''}>`;
+}
+
+/* ---------------- Diccionario: listas, autocompletado y sugerencias ---------------- */
+function listaPara(ruta, k) {
+  if (!dic) return '';
+  if (k === 'codigo' || k === 'control') return 'dl-controles';
+  if (k === 'req') return 'dl-req';
+  if (dic.claves && dic.claves[ruta] === k && dic.bloques[ruta]) return 'dl-' + ruta;
+  return '';
+}
+function datalists() {
+  if (!dic) return '';
+  const op = (v, l) => `<option value="${esc(v)}"${l ? ` label="${esc(l)}"` : ''}></option>`;
+  const reqs = [...new Set([...(datos.requerimientos || []), ...(dic.bloques.requerimientos || [])].map((r) => r.id).filter(Boolean))];
+  let h = `<datalist id="dl-controles">${dic.controles.map((c) => op(c.codigo, c.nombre)).join('')}</datalist><datalist id="dl-req">${reqs.map((r) => op(r)).join('')}</datalist>`;
+  Object.entries(dic.claves || {}).forEach(([ruta, k]) => {
+    if (ruta === 'controles' || !dic.bloques[ruta]) return;
+    h += `<datalist id="dl-${ruta}">${dic.bloques[ruta].map((it) => op(it[k])).join('')}</datalist>`;
+  });
+  return `<div hidden>${h}</div>`;
+}
+function autocompletar(ruta, i, k, v) {
+  if (!dic || !v || !dic.bloques[ruta] || (dic.claves || {})[ruta] !== k) return;
+  const item = dic.bloques[ruta].find((x) => norm(x[k]) === norm(v));
+  if (!item) return;
+  const fila = datos[ruta][i]; let n = 0;
+  Object.keys(item).forEach((c) => {
+    if (c === k || item[c] == null || item[c] === '' || (fila[c] != null && fila[c] !== '')) return;
+    fila[c] = JSON.parse(JSON.stringify(item[c])); n++;
+    const el = document.querySelector(`[data-ruta="${ruta}"][data-i="${i}"][data-k="${c}"]`);
+    if (el && !el.dataset.img) el.value = item[c];
+  });
+  if (n) { guardar(); aviso(`Completado desde el diccionario: ${n} campo(s)`); }
+}
+function obligatoriosDe(ruta) {
+  if (!dic) return null;
+  if (ruta === 'controles') return new Set(dic.obligatorios || []);
+  const q = (dic.requisitos || []).find((x) => x.tipo === 'ids' && x.ruta === ruta && Array.isArray(x.ids));
+  return q ? new Set(q.ids) : null;
+}
+function resumenItem(ruta, it) {
+  if (ruta === 'controles') { const c = dic.controles.find((x) => x.codigo === it.codigo) || {}; return `${it.codigo} ${it.nombre} — ${c.descripcion || it.riesgo}`; }
+  const t = Object.values(it).filter((x) => typeof x === 'string' && x.trim()).slice(0, 3).join(' — ');
+  return t.length > 190 ? t.slice(0, 187) + '…' : t;
+}
+function faltantes(ruta) {
+  const clave = (dic.claves || {})[ruta];
+  const usados = new Set((datos[ruta] || []).map((f) => norm(f[clave])));
+  return (dic.bloques[ruta] || []).map((it, j) => [it, j]).filter(([it]) => !usados.has(norm(it[clave])));
+}
+function panelSugerencias(ruta) {
+  if (!dic || !dic.bloques || !dic.bloques[ruta]) return '';
+  const falta = faltantes(ruta);
+  if (!falta.length) return '<p class="ayuda sug-ok">✓ Incluye todas las sugerencias del diccionario para esta sección.</p>';
+  const clave = dic.claves[ruta], obl = obligatoriosDe(ruta), rel = new Set(dic.relevantes || []);
+  const nObl = obl ? falta.filter(([it]) => obl.has(it[clave])).length : 0;
+  return `<details class="sugerencias"${nObl ? ' open' : ''}><summary>💡 Sugerencias del diccionario (${falta.length})${nObl ? ` · <b>faltan ${nObl} obligatorias</b>` : ''}</summary>
+    ${nObl ? `<div class="fila-botones"><button class="btn mini primario" data-sug-oblig="${ruta}">Agregar las obligatorias</button></div>` : ''}
+    <ul>${falta.map(([it, j]) => `<li><button class="btn mini" data-sug="${ruta}" data-j="${j}">Agregar</button>
+      ${obl && obl.has(it[clave]) ? '<span class="etq oblig">obligatorio</span>' : ''}${ruta === 'controles' && rel.has(it.codigo) ? '<span class="etq rel">tu temática</span>' : ''} ${esc(resumenItem(ruta, it))}</li>`).join('')}</ul></details>`;
+}
+function botonesTexto(ruta, c) {
+  if (!dic) return '';
+  const k = `${ruta}.${c.k}`;
+  if (c.t === 'lista' && dic.listas && dic.listas[k]) return `<button class="btn mini" data-suglista="${k}">💡 Agregar sugeridos</button>`;
+  if (dic.textos && dic.textos[k]) return `<button class="btn mini" data-sugtxt="${k}">💡 Sugerir texto</button>`;
+  return '';
+}
+function tablaDiccionario(q, fam) {
+  const enUso = new Set((datos.controles || []).map((c) => c.codigo));
+  const qq = norm(q);
+  const lista = dic.controles.filter((c) => (!fam || c.familia === fam) && (!qq || norm([c.codigo, c.nombre, c.familia, c.capa, c.descripcion, c.riesgo, c.punto].join(' ')).includes(qq)));
+  if (!lista.length) return '<p class="ayuda">Sin resultados.</p>';
+  return `<div class="tabla-wrap"><table class="dic"><thead><tr><th>Código</th><th>Nombre</th><th>Familia</th><th>Capa</th><th>Qué exige</th><th>Punto de aplicación en tu proyecto</th><th>Evidencia sugerida</th><th>Prueba</th><th></th></tr></thead><tbody>
+    ${lista.map((c) => `<tr><td><b>${esc(c.codigo)}</b>${c.obligatorio ? ' ★' : ''}${c.relevante ? ' ◆' : ''}</td><td>${esc(c.nombre)}</td><td>${esc(c.familia)}</td><td>${esc(c.capa)}</td><td>${esc(c.descripcion)}</td><td>${esc(c.punto)}</td><td>${esc(c.evidencia)}</td><td>${esc(c.prueba || '—')}</td>
+      <td>${enUso.has(c.codigo) ? '<span class="etq ok">En uso</span>' : `<button class="btn mini" data-dic-add="${esc(c.codigo)}">Agregar</button>`}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function renderDiccionario() {
+  if (!dic) return `<div class="tarjeta"><p class="ayuda">No se encontró <code>${esc(CFG.dicFile || 'diccionario')}</code>. El sistema funciona igual, sin sugerencias.</p></div>`;
+  const familias = [...new Set(dic.controles.map((c) => c.familia))];
+  const chk = chequeoPauta(indicadores());
+  return `<div class="tarjeta"><h2>Controles NIST SP 800-53 Rev. 5 (${dic.controles.length})</h2>
+      <p class="ayuda">Adaptados a tu proyecto (${esc(dic.app)}). ★ obligatorio del proyecto · ◆ destacado para tu temática. «Agregar» lo suma a Controles NIST con su riesgo, punto, capa y requerimiento.</p>
+      <div class="fila-botones"><input id="dic-buscar" placeholder="Buscar por código, nombre, familia o palabra (ej. SC-, cifrado, sesión)"><select id="dic-familia"><option value="">Todas las familias</option>${familias.map((f) => `<option>${esc(f)}</option>`).join('')}</select></div>
+      <div id="dic-resultados">${tablaDiccionario('', '')}</div></div>
+    <div class="tarjeta"><h2>Contenido mínimo del informe</h2><p class="ayuda">De la pauta de la Evaluación 4 y la guía U4.</p><ul class="chequeo">${chk.map((c) => `<li>${c.cond ? '✅' : '⬜'} ${esc(c.txt)}${!c.cond && c.modulo ? ` <button class="btn mini" data-mod="${esc(c.modulo)}">Completar</button>` : ''}</li>`).join('')}</ul></div>
+    <div class="tarjeta"><h2>Glosario</h2><dl class="glosario">${(dic.glosario || []).map((g) => `<dt>${esc(g.termino)}</dt><dd>${esc(g.definicion)}</dd>`).join('')}</dl></div>`;
 }
 
 function renderBloque(b) {
@@ -264,7 +384,7 @@ function renderBloque(b) {
     return `<div class="tarjeta"><h2>${esc(b.titulo)} <small>(${filas.length})</small></h2>${b.ayuda ? `<p class="ayuda">${esc(b.ayuda)}</p>` : ''}
       <div class="tabla-wrap"><table><thead><tr>${b.cols.map((c) => `<th>${esc(c.l)}</th>`).join('')}<th></th></tr></thead><tbody>
       ${filas.map((f, i) => `<tr>${b.cols.map((c) => `<td>${inputCelda(c, f[c.k], b.ruta, i)}</td>`).join('')}<td><button class="btn mini peligro" data-borrar="${b.ruta}" data-i="${i}" title="Eliminar fila">✕</button></td></tr>`).join('')}
-      </tbody></table></div><div class="fila-botones"><button class="btn" data-agregar="${b.ruta}">+ Agregar fila</button></div></div>`;
+      </tbody></table></div><div class="fila-botones"><button class="btn" data-agregar="${b.ruta}">+ Agregar fila</button></div>${panelSugerencias(b.ruta)}</div>`;
   }
   if (b.tipo === 'obj') {
     const o = asegurar(b.ruta, {});
@@ -273,9 +393,10 @@ function renderBloque(b) {
       const attr = `data-obj="${b.ruta}" data-k="${c.k}" ${c.t === 'lista' ? 'data-lista="1"' : ''}`;
       const ctl = Array.isArray(c.t) ? `<select ${attr}>${c.t.map((op) => `<option ${op === v ? 'selected' : ''}>${esc(op)}</option>`).join('')}</select>`
         : (c.t === 'area' || c.t === 'lista' ? `<textarea ${attr}>${esc(v)}</textarea>` : `<input ${attr} value="${esc(v)}">`);
-      return `<div class="campo"><label>${esc(c.l)}</label>${ctl}</div>`;
+      return `<div class="campo"><label>${esc(c.l)} ${botonesTexto(b.ruta, c)}</label>${ctl}</div>`;
     }).join('')}</div>`;
   }
+  if (b.tipo === 'diccionario') return renderDiccionario();
   if (b.tipo === 'equipo') {   // carga de trabajo por persona, calculada desde las tareas
     const filas = (datos.personal || []).filter((p) => p.nombre).map((p) => {
       const t = (datos.tareas || []).filter((x) => x.responsable === p.nombre && (!p.rol || x.rol === p.rol));
@@ -333,7 +454,7 @@ function render() {
   renderMenu();
   $('#nombre-estudiante').textContent = (datos.meta && datos.meta.estudiante) || '';
   const m = MODULOS.find((x) => x.id === moduloActual);
-  $('#contenido').innerHTML = m.id === 'resumen' ? renderResumen() : `<h1>${esc(m.titulo)}</h1>` + m.bloques.map(renderBloque).join('');
+  $('#contenido').innerHTML = (m.id === 'resumen' ? renderResumen() : `<h1>${esc(m.titulo)}</h1>` + m.bloques.map(renderBloque).join('')) + datalists();
 }
 
 /* ---------------- Eventos ---------------- */
@@ -369,13 +490,35 @@ document.addEventListener('input', (e) => {
     o[el.dataset.k] = el.dataset.lista ? el.value.split('\n').map((s) => s.trim()).filter(Boolean) : el.value;
     guardar(); return;
   }
-  if (el.dataset.ruta && !el.dataset.img) { datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = el.value; guardar(); }
+  if (el.id === 'dic-buscar' || el.id === 'dic-familia') { $('#dic-resultados').innerHTML = tablaDiccionario($('#dic-buscar').value, $('#dic-familia').value); return; }
+  if (el.dataset.ruta && !el.dataset.img) { datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = el.value; guardar(); autocompletar(el.dataset.ruta, +el.dataset.i, el.dataset.k, el.value); }
 });
 document.addEventListener('click', (e) => {
   const el = e.target.closest('button'); if (!el) return;
   if (el.dataset.mod) { moduloActual = el.dataset.mod; render(); $('#contenido').focus(); return; }
   if (el.dataset.agregar) { asegurar(el.dataset.agregar, []).push({}); guardar(); render(); return; }
   if (el.dataset.borrar) { if (confirm('¿Eliminar esta fila?')) { datos[el.dataset.borrar].splice(+el.dataset.i, 1); guardar(); render(); } return; }
+  if (el.dataset.sug) { asegurar(el.dataset.sug, []).push(JSON.parse(JSON.stringify(dic.bloques[el.dataset.sug][+el.dataset.j]))); guardar(); render(); aviso('Agregado desde el diccionario'); return; }
+  if (el.dataset.sugOblig) {
+    const r = el.dataset.sugOblig, obl = obligatoriosDe(r), cl = dic.claves[r];
+    const nuevos = faltantes(r).filter(([it]) => obl.has(it[cl])).map(([it]) => JSON.parse(JSON.stringify(it)));
+    asegurar(r, []).push(...nuevos); guardar(); render(); aviso(`${nuevos.length} obligatorio(s) agregado(s)`); return;
+  }
+  if (el.dataset.sugtxt) {
+    const [r, k] = el.dataset.sugtxt.split('.'), o = asegurar(r, {}), op = dic.textos[el.dataset.sugtxt];
+    const t = op[(+(el.dataset.n || 0)) % op.length];
+    o[k] = String(o[k] || '').trim() ? `${o[k]}\n\n${t}` : t; guardar(); render(); aviso(String(o[k]).includes(t) ? 'Texto sugerido insertado' : ''); return;
+  }
+  if (el.dataset.suglista) {
+    const [r, k] = el.dataset.suglista.split('.'), o = asegurar(r, {});
+    const act = Array.isArray(o[k]) ? o[k] : [], nuevos = dic.listas[el.dataset.suglista].filter((x) => !act.map(norm).includes(norm(x)));
+    o[k] = act.concat(nuevos); guardar(); render(); aviso(`${nuevos.length} elemento(s) agregado(s)`); return;
+  }
+  if (el.dataset.dicAdd) {
+    const f = dic.bloques.controles.find((x) => x.codigo === el.dataset.dicAdd);
+    if (f) { asegurar('controles', []).push(JSON.parse(JSON.stringify(f))); guardar(); $('#dic-resultados').innerHTML = tablaDiccionario($('#dic-buscar').value, $('#dic-familia').value); aviso(`${f.codigo} agregado a Controles NIST`); }
+    return;
+  }
   if (el.dataset.quitarImg) { datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = ''; guardar(); render(); return; }
   const acc = el.dataset.accion;
   if (acc === 'pdf') generarPDF();
@@ -567,4 +710,4 @@ function generarPDF() {
 }
 
 /* ---------------- Inicio ---------------- */
-cargar().then(() => { completarDatos(); render(); });
+Promise.all([cargar(), cargarDiccionario()]).then(() => { completarDatos(); render(); });

@@ -27,6 +27,7 @@ python generar.py --lote alumnos.csv --salida salida
 
 La combinación se calcula de forma determinista a partir de NN + nombre + usuario GitHub (+ `--semilla` para cambiarla):
 
+- **Diccionario**: 46 controles NIST y la información base del informe, adaptados a cada plantilla y sugeridos mientras se rellena el sistema.
 - **Caso**: 15 temáticas sobre 5 patrones de negocio (inventario, reservas, préstamos, órdenes, membresías), cada una con tablas, campos, reglas, reportes, actores, procesos y requerimientos propios.
 - **Sistema de gestión**: 8 nombres × 8 paletas (con modo oscuro) × 8 tipografías × 3 distribuciones (menú izquierda/derecha/superior) × 4 estilos de tarjeta × 3 tipos de gráfico × 3 estilos de PDF.
 - **App del caso**: paleta, tipografía y 3 distribuciones de formulario/listado.

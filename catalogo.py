@@ -90,51 +90,5 @@ PROVEEDORES_ALT = [
      "riesgos": "Reclamo de capacidad Always Free; menor experiencia del equipo con la plataforma"},
 ]
 
-# Controles NIST SP 800-53 Rev. 5 (pool). req_tipo indica a qué RNF se ligan.
-CONTROLES = [
-    {"codigo": "AC-6", "nombre": "Least Privilege", "riesgo": "Uso indebido de privilegios por usuarios no administradores", "punto": "/etc/sudoers.d/ con comandos específicos por grupo y usuario de BD sin ALL", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "IA-2(1)", "nombre": "MFA para cuentas privilegiadas", "riesgo": "Robo o filtración de la llave SSH del administrador", "punto": "sshd + pam_google_authenticator (TOTP) para el grupo administrador", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "SC-7", "nombre": "Boundary Protection", "riesgo": "Exposición de la base de datos y SSH a Internet", "punto": "VPC con subred privada, Security Groups y firewall de host", "capa": "Red", "req": "seguridad"},
-    {"codigo": "SC-28", "nombre": "Protection of Information at Rest", "riesgo": "Lectura de respaldos si se roba el volumen o snapshot", "punto": "Volumen LUKS montado en /respaldos en bd-NN", "capa": "Proveedor", "req": "seguridad"},
-    {"codigo": "AU-2", "nombre": "Event Logging", "riesgo": "Cambios no autorizados sin trazabilidad", "punto": "auditd con reglas sobre sudo, passwd, sudoers y sshd_config", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "AU-6", "nombre": "Audit Record Review", "riesgo": "Incidentes no detectados por falta de revisión", "punto": "Revisión periódica con aureport/ausearch por el grupo auditoría", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "AC-17", "nombre": "Remote Access", "riesgo": "Acceso remoto por fuerza bruta o como root", "punto": "sshd_config: sin root, sin contraseña, AllowGroups, MaxAuthTries 3", "capa": "Red", "req": "seguridad"},
-    {"codigo": "AC-12", "nombre": "Session Termination", "riesgo": "Sesiones abandonadas reutilizadas por terceros", "punto": "App: sesión expira a los 15 min de inactividad y a las 8 h; SSH: ClientAliveInterval/CountMax y MaxSessions", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "CP-9", "nombre": "System Backup", "riesgo": "Pérdida de datos por falla o error humano", "punto": "cron diario con dump de la BD hacia /respaldos (LUKS)", "capa": "Proveedor", "req": "disponibilidad"},
-    {"codigo": "CP-10", "nombre": "System Recovery and Reconstitution", "riesgo": "Imposibilidad de recuperar el servicio tras un incidente", "punto": "Restauración probada del respaldo y snapshots de volúmenes EBS", "capa": "Proveedor", "req": "disponibilidad"},
-    {"codigo": "IA-5", "nombre": "Authenticator Management", "riesgo": "Credenciales débiles o expuestas en el código", "punto": "Llaves ED25519 por usuario y credenciales de BD en /etc/ti3062/db.ini fuera del repositorio", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "CM-7", "nombre": "Least Functionality", "riesgo": "Servicios y puertos innecesarios que amplían la superficie de ataque", "punto": "Solo 80/443/22 en web y puerto BD/22 en bd; firewall de host por defecto deny", "capa": "Red", "req": "rendimiento"},
-]
-
-# Controles NIST obligatorios para la aplicación web del caso (todos quedan implementados por la app y el instalador)
-CONTROLES_APP = [
-    {"codigo": "AC-3", "nombre": "Access Enforcement", "riesgo": "Usuarios que ejecutan acciones fuera de su rol", "punto": "App: roles admin / operador / auditor verificados en cada acción del servidor", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "AC-7", "nombre": "Unsuccessful Logon Attempts", "riesgo": "Fuerza bruta contra cuentas de la aplicación", "punto": "App: bloqueo de 15 min tras 5 intentos fallidos, registrado en auditoria_app", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "AC-8", "nombre": "System Use Notification", "riesgo": "Uso no autorizado sin advertencia legal", "punto": "App: aviso de uso autorizado y registro en la pantalla de ingreso; banner SSH", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "IA-2", "nombre": "Identification and Authentication (Organizational Users)", "riesgo": "Acciones anónimas sin responsable", "punto": "App: usuarios nominativos en usuarios_app; cada registro guarda su autor", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "IA-5(1)", "nombre": "Password-based Authentication", "riesgo": "Contraseñas débiles o almacenadas en claro", "punto": "App: mínimo 12 caracteres, hash bcrypt/argon2 (password_hash), cambio de clave por el usuario", "capa": "Identidad", "req": "seguridad"},
-    {"codigo": "SC-8", "nombre": "Transmission Confidentiality and Integrity", "riesgo": "Intercepción de datos entre el navegador, web y la BD", "punto": "HTTPS con redirección desde HTTP + TLS 1.2/1.3 web→bd con verificación del certificado (CA propia)", "capa": "Red", "req": "seguridad"},
-    {"codigo": "SC-23", "nombre": "Session Authenticity", "riesgo": "Robo o fijación de la sesión y CSRF", "punto": "App: cookie HttpOnly/Secure/SameSite=Strict, regeneración del ID al ingresar y token CSRF en cada formulario", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "SI-10", "nombre": "Information Input Validation", "riesgo": "Inyección SQL, XSS o datos inválidos", "punto": "App: consultas preparadas, listas blancas por campo, escape de salida, CSP y CSV sin fórmulas", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "SI-11", "nombre": "Error Handling", "riesgo": "Mensajes que revelan estructura interna o credenciales", "punto": "App: errores genéricos al usuario y detalle solo en el log del servidor; display_errors Off", "capa": "Aplicación", "req": "seguridad"},
-    {"codigo": "AU-9", "nombre": "Protection of Audit Information", "riesgo": "Borrado o alteración del registro de actividad", "punto": "auditoria_app: el usuario de la app solo tiene INSERT/SELECT (sin UPDATE ni DELETE)", "capa": "Aplicación", "req": "seguridad"},
-]
-
-RIESGOS_RESIDUALES = [
-    {"riesgo": "Instancia única de base de datos en una sola AZ", "impacto": "Alto: una falla de la AZ deja el servicio sin datos hasta restaurar desde snapshot", "tratamiento": "Aceptado temporalmente; mejora propuesta: réplica en otra AZ"},
-    {"riesgo": "El volumen LUKS requiere desbloqueo manual tras reinicio", "impacto": "Medio: los respaldos programados fallan si nadie abre el volumen después de un reinicio", "tratamiento": "Procedimiento documentado y alerta si /respaldos no está montado"},
-    {"riesgo": "Logs de auditoría almacenados solo localmente", "impacto": "Medio: un atacante con root podría borrar la evidencia", "tratamiento": "Mejora propuesta: envío a servidor central (rsyslog/CloudWatch)"},
-    {"riesgo": "Sin TLS con certificado de una CA pública en la app del caso", "impacto": "Medio: advertencias de certificado y posible intercepción si se usa HTTP", "tratamiento": "Mejora propuesta: dominio propio + Let's Encrypt"},
-    {"riesgo": "Sin IAM ni CloudTrail en AWS Academy", "impacto": "Medio: no hay auditoría de acciones en la consola de AWS", "tratamiento": "Compensado con auditd a nivel de SO; limitación del entorno"},
-    {"riesgo": "Las llaves privadas residen en el equipo personal del estudiante", "impacto": "Alto: robo del equipo compromete el acceso (mitigado por TOTP solo en admin)", "tratamiento": "Frase de paso en las llaves y MFA para todos los grupos como mejora"},
-]
-
-MEJORAS = [
-    {"accion": "Centralizar auditd, auth.log y auditoria_app en un servidor o servicio externo", "control": "AU-9(2)", "impacto": "Protege la evidencia ante un compromiso de root"},
-    {"accion": "Agregar réplica de la base de datos en otra zona de disponibilidad", "control": "CP-7", "impacto": "Reduce el punto único de falla de bd-NN"},
-    {"accion": "Publicar la app con un dominio y certificado de CA pública (Let's Encrypt) en lugar del autofirmado", "control": "SC-8", "impacto": "Elimina la advertencia del navegador y el riesgo de aceptar certificados falsos"},
-    {"accion": "Extender MFA TOTP a los grupos de desarrollo y auditoría", "control": "IA-2(2)", "impacto": "Reduce el riesgo de suplantación con llaves robadas"},
-    {"accion": "Instalar fail2ban para bloquear IPs con intentos fallidos repetidos", "control": "AC-7", "impacto": "Mitiga fuerza bruta contra SSH y la app"},
-    {"accion": "Copiar respaldos cifrados a almacenamiento externo (S3 u otra región)", "control": "CP-6", "impacto": "Respaldo fuera del sitio ante pérdida de la instancia"},
-    {"accion": "Escaneo periódico de vulnerabilidades con Lynis y actualizaciones automáticas", "control": "RA-5", "impacto": "Detecta configuraciones débiles y paquetes vulnerables"},
-]
+# Controles NIST, riesgos residuales y mejoras: fuente única en diccionario.py
+from diccionario import CONTROLES, CONTROLES_APP, RIESGOS_RESIDUALES, MEJORAS  # noqa: E402,F401

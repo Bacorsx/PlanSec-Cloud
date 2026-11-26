@@ -84,3 +84,24 @@ td textarea { min-width: 180px; min-height: 54px; resize: vertical; }
 .gantt .g-barra.hecha { background: var(--ok); }
 .aviso { padding: 10px 14px; border-radius: var(--radio); background: color-mix(in srgb, var(--acento) 18%, transparent); margin-bottom: 12px; font-size: 13px; }
 @media (max-width: 600px) { main { padding: 16px; } .gantt .g-fila { grid-template-columns: 110px 1fr; } }
+
+/* ---------- Diccionario y sugerencias ---------- */
+.sugerencias { margin-top: 12px; border: 1px dashed var(--linea); border-radius: 8px; padding: 8px 12px; background: color-mix(in srgb, var(--acento) 5%, transparent); }
+.sugerencias summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.sugerencias ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 320px; overflow: auto; }
+.sugerencias li { font-size: 13px; line-height: 1.4; }
+.etq { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-right: 4px; }
+.etq.oblig { background: color-mix(in srgb, #c0392b 18%, transparent); color: #c0392b; }
+.etq.rel { background: color-mix(in srgb, var(--acento) 22%, transparent); }
+.etq.ok { background: color-mix(in srgb, #2e8b57 20%, transparent); color: #2e8b57; }
+.sug-ok { margin-top: 10px; }
+.campo label .btn.mini { margin-left: 6px; font-weight: 600; }
+#dic-buscar { flex: 1 1 280px; min-width: 200px; padding: 7px 9px; border: 1px solid var(--linea); border-radius: 6px; background: var(--fondo); color: var(--texto); font: inherit; }
+#dic-familia { padding: 7px; border: 1px solid var(--linea); border-radius: 6px; background: var(--fondo); color: var(--texto); font: inherit; }
+table.dic td { font-size: 12.5px; vertical-align: top; min-width: 90px; }
+table.dic td:nth-child(5), table.dic td:nth-child(6), table.dic td:nth-child(7) { min-width: 230px; }
+.glosario { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 6px 14px; margin: 0; }
+.glosario dt { font-weight: 700; } .glosario dd { margin: 0; color: var(--suave); }
+.chequeo li { margin: 4px 0; }
+#aviso { position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 20px); background: var(--primario); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 600; opacity: 0; pointer-events: none; transition: .25s; z-index: 50; }
+#aviso.visible { opacity: 1; transform: translate(-50%, 0); }
