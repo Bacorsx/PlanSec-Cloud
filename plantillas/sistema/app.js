@@ -17,12 +17,17 @@ const AREAS = ['Red / VPC', 'Security Groups', 'Instancias', 'Aplicación', 'Bas
 
 const MODULOS = [
   { id: 'resumen', titulo: 'Panel de resumen' },
+  { id: 'equipo', titulo: 'Equipo y roles', bloques: [
+    { tipo: 'arr', ruta: 'personal', titulo: 'Personal del proyecto', ayuda: 'Integrantes con su cargo y rol funcional. Los responsables de tareas y de la bitácora se eligen desde esta lista.', cols: [
+      { k: 'id', l: 'ID' }, { k: 'nombre', l: 'Nombre' }, { k: 'cargo', l: 'Cargo' }, { k: 'rol', l: 'Rol', t: ROLES },
+      { k: 'correo', l: 'Correo' }, { k: 'responsabilidades', l: 'Responsabilidades', t: 'area' }] },
+    { tipo: 'equipo' }] },
   { id: 'planificacion', titulo: 'Gestión y planificación', bloques: [
     { tipo: 'arr', ruta: 'hitos', titulo: 'Hitos', ayuda: 'Mínimo 3 hitos.', cols: [
       { k: 'id', l: 'ID' }, { k: 'nombre', l: 'Hito' }, { k: 'fecha', l: 'Fecha objetivo', t: 'date' }, { k: 'criterio', l: 'Criterio de cierre', t: 'area' }] },
     { tipo: 'arr', ruta: 'tareas', titulo: 'Tareas', ayuda: 'Mínimo 10 tareas con rol, responsable, fechas, dependencia y estado.', cols: [
       { k: 'id', l: 'ID' }, { k: 'nombre', l: 'Tarea', t: 'area' }, { k: 'hito', l: 'Hito', t: 'ref:hitos' }, { k: 'rol', l: 'Rol', t: ROLES },
-      { k: 'responsable', l: 'Responsable' }, { k: 'inicio', l: 'Inicio', t: 'date' }, { k: 'fin', l: 'Término', t: 'date' },
+      { k: 'responsable', l: 'Responsable', t: 'persona' }, { k: 'inicio', l: 'Inicio', t: 'date' }, { k: 'fin', l: 'Término', t: 'date' },
       { k: 'dependencia', l: 'Depende de' }, { k: 'estado', l: 'Estado', t: EST_TAREA }] },
     { tipo: 'gantt' }] },
   { id: 'problema', titulo: 'Problemática y requerimientos', bloques: [
@@ -62,7 +67,7 @@ const MODULOS = [
       { k: 'grupo', l: 'SG' }, { k: 'puerto', l: 'Puerto' }, { k: 'origen', l: 'Origen' }, { k: 'host', l: 'Regla firewall host' }, { k: 'justificacion', l: 'Justificación', t: 'area' }] },
     { tipo: 'arr', ruta: 'bitacora', titulo: 'Bitácora de implementación', ayuda: 'Cada configuración con fecha, responsable, comando y evidencia (sin llaves privadas, secretos MFA, QR ni códigos de emergencia).', cols: [
       { k: 'fecha', l: 'Fecha', t: 'date' }, { k: 'area', l: 'Área', t: AREAS }, { k: 'configuracion', l: 'Configuración', t: 'area' }, { k: 'comando', l: 'Comando / archivo', t: 'area' },
-      { k: 'responsable', l: 'Responsable' }, { k: 'ref', l: 'Tarea / control' }, { k: 'evidencia', l: 'Título evidencia' }, { k: 'descripcion', l: 'Descripción / justificación', t: 'area' }, { k: 'imagen', l: 'Captura', t: 'img' }] }] },
+      { k: 'responsable', l: 'Responsable', t: 'persona' }, { k: 'ref', l: 'Tarea / control' }, { k: 'evidencia', l: 'Título evidencia' }, { k: 'descripcion', l: 'Descripción / justificación', t: 'area' }, { k: 'imagen', l: 'Captura', t: 'img' }] }] },
   { id: 'validacion', titulo: 'Validación y cierre', bloques: [
     { tipo: 'arr', ruta: 'pruebas', titulo: 'Pruebas (P1–P4 obligatorias)', cols: [
       { k: 'id', l: 'ID' }, { k: 'objetivo', l: 'Objetivo', t: 'area' }, { k: 'comando', l: 'Comando', t: 'area' }, { k: 'esperado', l: 'Esperado', t: 'area' },
@@ -80,6 +85,18 @@ const MODULOS = [
     { tipo: 'arr', ruta: 'mejoras', titulo: 'Acciones de mejora (≥3)', cols: [
       { k: 'id', l: 'ID' }, { k: 'accion', l: 'Acción', t: 'area' }, { k: 'control', l: 'Control NIST' }, { k: 'impacto', l: 'Impacto esperado', t: 'area' }, { k: 'evidencia', l: 'Evidencia / hallazgo origen', t: 'area' }] },
     { tipo: 'obj', ruta: 'cierre', titulo: 'Conclusiones', campos: [{ k: 'conclusion', l: 'Conclusión', t: 'area' }, { k: 'aprendizajes', l: 'Aprendizajes', t: 'area' }] }] },
+  { id: 'informe', titulo: 'Contenido del informe', bloques: [
+    { tipo: 'obj', ruta: 'informe', titulo: 'Portada', ayuda: 'Todo lo que aparece en el PDF sale de estos campos y de los demás módulos: no hay textos fijos en el código.', campos: [
+      { k: 'titulo', l: 'Título del informe' }, { k: 'subtitulo', l: 'Subtítulo (bajo el título)' }, { k: 'asignatura', l: 'Código y nombre de la asignatura' },
+      { k: 'mostrarEquipo', l: 'Mostrar integrantes en la portada', t: ['Sí', 'No'] }, { k: 'estado', l: 'Texto de estado al generar (usa {avance} {completadas} {tareas} {controlesImpl} {controlesTot} {aprobadas} {pruebasTot} {riesgos} {hallazgos})', t: 'area' }] },
+    { tipo: 'obj', ruta: 'informe', titulo: 'Introducción', campos: [
+      { k: 'incluirIntro', l: 'Incluir introducción', t: ['Sí', 'No'] }, { k: 'introTitulo', l: 'Título de la introducción' },
+      { k: 'proposito', l: 'Propósito general del proyecto', t: 'area' }, { k: 'alcance', l: 'Alcance del trabajo', t: 'area' }, { k: 'escenario', l: 'Escenario o problema entregado por el docente', t: 'area' }] },
+    { tipo: 'obj', ruta: 'informe', titulo: 'Secciones del documento', ayuda: 'Título de cada sección y un párrafo introductorio opcional (se imprime bajo el título).', campos: [1, 2, 3, 4, 5, 6, 7].flatMap((n) => [
+      { k: 'sec' + n, l: `Sección ${n}: título` }, { k: 'intro' + n, l: `Sección ${n}: párrafo introductorio`, t: 'area' }]) },
+    { tipo: 'obj', ruta: 'informe', titulo: 'Referencias y pie de página', campos: [
+      { k: 'incluirRef', l: 'Incluir referencias', t: ['Sí', 'No'] }, { k: 'refTitulo', l: 'Título de la sección de referencias' },
+      { k: 'referencias', l: 'Referencias (una por línea)', t: 'lista' }, { k: 'pie', l: 'Pie de página (usa {estudiante} {nn} {sistema})' }] }] },
   { id: 'documento', titulo: 'Documento y datos', bloques: [
     { tipo: 'obj', ruta: 'meta', titulo: 'Portada', campos: [
       { k: 'estudiante', l: 'Estudiante' }, { k: 'nn', l: 'Número de lista (NN)' }, { k: 'carrera', l: 'Carrera' }, { k: 'sede', l: 'Sede' },
@@ -93,6 +110,26 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const get = (ruta) => ruta.split('.').reduce((o, k) => (o == null ? o : o[k]), datos);
 function asegurar(ruta, def) { if (datos[ruta] == null) datos[ruta] = def; return datos[ruta]; }
 const hoy = () => new Date().toISOString().slice(0, 10);
+
+/* Migración: proyectos guardados antes de existir "Equipo" e "Informe" reciben valores iniciales editables */
+function completarDatos() {
+  const m = datos.meta || (datos.meta = {});
+  if (!Array.isArray(datos.personal) || !datos.personal.length) {
+    datos.personal = ROLES.map((r, i) => ({ id: 'P' + (i + 1), nombre: m.estudiante || '', cargo: { 'Administración': 'Administrador de infraestructura', 'Desarrollo': 'Desarrollador de la aplicación', 'Auditoría': 'Auditor de seguridad' }[r], rol: r, correo: '', responsabilidades: '' }));
+  }
+  const inf = datos.informe || (datos.informe = {});
+  const def = {
+    titulo: 'Proyecto Integrador de Seguridad en Infraestructura Cloud y Redes', subtitulo: (datos.problema || {}).titulo || '',
+    asignatura: 'TI3062 · Gestión de Seguridad de la Información', mostrarEquipo: 'Sí',
+    estado: 'Estado al generar: avance {avance}% · {controlesImpl}/{controlesTot} controles implementados · {aprobadas}/{pruebasTot} pruebas aprobadas · {riesgos} riesgos residuales.',
+    incluirIntro: 'Sí', introTitulo: 'Introducción', proposito: '', alcance: '', escenario: (datos.problema || {}).contexto || '',
+    sec1: '1. Planificación y gestión', sec2: '2. Problemática, requerimientos, dependencias y limitaciones', sec3: '3. Alternativas cloud y selección',
+    sec4: '4. Controles NIST SP 800-53 Rev. 5', sec5: '5. Implementación', sec6: '6. Validación', sec7: '7. Evaluación final',
+    incluirRef: 'Sí', refTitulo: 'Referencias', referencias: [], pie: 'TI3062 · {estudiante} · NN {nn} · {sistema}',
+  };
+  Object.keys(def).forEach((k) => { if (inf[k] == null) inf[k] = def[k]; });
+}
+function plantilla(t, v) { return String(t || '').replace(/\{(\w+)\}/g, (s, k) => (v[k] != null ? v[k] : s)); }
 
 function guardar() {
   try {
@@ -146,6 +183,8 @@ function chequeoPauta(k) {
   ok(k.riesgos >= 3, '≥3 riesgos residuales');
   ok((datos.mejoras || []).length >= 3, '≥3 acciones de mejora');
   ok(k.evidencias >= 1, 'Evidencias con captura en bitácora');
+  const nombres = (datos.personal || []).map((p) => p.nombre).filter(Boolean);
+  ok(nombres.length >= 1 && (datos.tareas || []).every((t) => nombres.includes(t.responsable)), 'Responsables de tareas asignados desde el equipo');
   return c;
 }
 
@@ -208,6 +247,11 @@ function inputCelda(col, valor, ruta, i) {
     const lista = datos[col.t.slice(4)] || [];
     return `<select ${attr}><option value=""></option>${lista.map((o) => `<option value="${esc(o.id)}" ${o.id === valor ? 'selected' : ''}>${esc(o.id + ' ' + (o.nombre || ''))}</option>`).join('')}</select>`;
   }
+  if (col.t === 'persona') {   // responsable elegido desde "Equipo y roles"; conserva un valor anterior aunque no esté en la lista
+    const nombres = [...new Set((datos.personal || []).map((p) => p.nombre).filter(Boolean))];
+    if (valor && !nombres.includes(valor)) nombres.unshift(valor);
+    return `<select ${attr}><option value=""></option>${nombres.map((n) => `<option ${n === valor ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+  }
   if (col.t === 'area') return `<textarea ${attr}>${esc(valor)}</textarea>`;
   if (col.t === 'date') return `<input type="date" ${attr} value="${esc(valor)}">`;
   if (col.t === 'img') return `<input type="file" accept="image/*" ${attr} data-img="1">${valor ? `<img class="thumb" src="${valor}" alt="captura"><button class="btn mini peligro" data-quitar-img="1" ${attr}>Quitar</button>` : ''}`;
@@ -224,11 +268,22 @@ function renderBloque(b) {
   }
   if (b.tipo === 'obj') {
     const o = asegurar(b.ruta, {});
-    return `<div class="tarjeta"><h2>${esc(b.titulo)}</h2>${b.campos.map((c) => {
+    return `<div class="tarjeta"><h2>${esc(b.titulo)}</h2>${b.ayuda ? `<p class="ayuda">${esc(b.ayuda)}</p>` : ''}${b.campos.map((c) => {
       const v = c.t === 'lista' ? (o[c.k] || []).join('\n') : o[c.k];
       const attr = `data-obj="${b.ruta}" data-k="${c.k}" ${c.t === 'lista' ? 'data-lista="1"' : ''}`;
-      return `<div class="campo"><label>${esc(c.l)}</label>${c.t === 'area' || c.t === 'lista' ? `<textarea ${attr}>${esc(v)}</textarea>` : `<input ${attr} value="${esc(v)}">`}</div>`;
+      const ctl = Array.isArray(c.t) ? `<select ${attr}>${c.t.map((op) => `<option ${op === v ? 'selected' : ''}>${esc(op)}</option>`).join('')}</select>`
+        : (c.t === 'area' || c.t === 'lista' ? `<textarea ${attr}>${esc(v)}</textarea>` : `<input ${attr} value="${esc(v)}">`);
+      return `<div class="campo"><label>${esc(c.l)}</label>${ctl}</div>`;
     }).join('')}</div>`;
+  }
+  if (b.tipo === 'equipo') {   // carga de trabajo por persona, calculada desde las tareas
+    const filas = (datos.personal || []).filter((p) => p.nombre).map((p) => {
+      const t = (datos.tareas || []).filter((x) => x.responsable === p.nombre && (!p.rol || x.rol === p.rol));
+      return `<tr><td>${esc(p.nombre)}</td><td>${esc(p.cargo)}</td><td>${esc(p.rol)}</td><td>${t.length}</td><td>${t.filter((x) => x.estado === 'Completada').length}</td><td>${esc(t.map((x) => x.id).join(', '))}</td></tr>`;
+    }).join('');
+    const sin = (datos.tareas || []).filter((x) => !x.responsable).length;
+    return `<div class="tarjeta"><h2>Asignación de tareas por persona</h2><p class="ayuda">Calculado desde Gestión y planificación.${sin ? ` ⚠ ${sin} tarea(s) sin responsable.` : ''}</p>
+      <div class="tabla-wrap"><table><thead><tr><th>Nombre</th><th>Cargo</th><th>Rol</th><th>Tareas</th><th>Completadas</th><th>IDs</th></tr></thead><tbody>${filas || '<tr><td colspan="6">Agrega personas arriba.</td></tr>'}</tbody></table></div></div>`;
   }
   if (b.tipo === 'gantt') return `<div class="tarjeta"><h2>Cronograma</h2>${htmlGantt()}</div>`;
   if (b.tipo === 'topologia') return `<div class="tarjeta"><h2>Diagrama (generado desde los datos)</h2>${svgTopologia()}</div>`;
@@ -338,12 +393,12 @@ function exportar() {
 function importarArchivo(file) {
   if (!file) return;
   const fr = new FileReader();
-  fr.onload = () => { try { datos = JSON.parse(fr.result); guardar(); render(); alert('Proyecto restaurado.'); } catch (err) { alert('JSON inválido: ' + err.message); } };
+  fr.onload = () => { try { datos = JSON.parse(fr.result); completarDatos(); guardar(); render(); alert('Proyecto restaurado.'); } catch (err) { alert('JSON inválido: ' + err.message); } };
   fr.readAsText(file);
 }
 async function restaurarRepo() {
   if (!confirm('Se reemplazarán los datos locales por ' + CFG.dataFile + '. ¿Continuar?')) return;
-  try { const r = await fetch(CFG.dataFile, { cache: 'no-store' }); datos = await r.json(); guardar(); render(); alert('Proyecto restaurado desde el repositorio.'); }
+  try { const r = await fetch(CFG.dataFile, { cache: 'no-store' }); datos = await r.json(); completarDatos(); guardar(); render(); alert('Proyecto restaurado desde el repositorio.'); }
   catch (err) { alert('No se pudo leer ' + CFG.dataFile); }
 }
 
@@ -391,23 +446,43 @@ function generarPDF() {
     doc.splitTextToSize(txt(`Figura ${fig}: ${tituloF(f)} — ${refF(f)}`), W - 2 * M).forEach((ln) => { doc.text(ln, M, y); y += 4; }); y += 3;
   });
 
-  // 0. Portada
+  // 0. Portada (todo desde datos.informe, datos.meta y datos.personal)
+  completarDatos();
+  const inf = datos.informe, k = indicadores();
+  const vars = { avance: k.avance, completadas: k.porEstado['Completada'] || 0, tareas: k.tareas, controlesImpl: k.controlesImpl, controlesTot: k.controlesTot,
+    aprobadas: k.aprobadas, pruebasTot: k.pruebasTot, riesgos: k.riesgos, hallazgos: k.hallazgos, estudiante: meta.estudiante || '', nn: meta.nn || CFG.nn, sistema: CFG.appName };
+  const secc = (n) => { titulo(inf['sec' + n] || String(n)); parrafo(inf['intro' + n]); };
   doc.setFillColor(...RGB); doc.rect(0, 0, W, 70, 'F');
   doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-  doc.text(doc.splitTextToSize(txt('Proyecto Integrador de Seguridad en Infraestructura Cloud y Redes'), W - 2 * M), M, 30);
-  doc.setFontSize(12); doc.text(txt('TI3062 · Gestión de Seguridad de la Información'), M, 55);
-  doc.setTextColor(20); y = 90; doc.setFontSize(16); doc.text(txt((datos.problema && datos.problema.titulo) || ''), M, y); y += 14;
-  doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+  doc.text(doc.splitTextToSize(txt(inf.titulo), W - 2 * M), M, 30);
+  doc.setFontSize(12); doc.text(txt(inf.asignatura), M, 58);
+  doc.setTextColor(20); y = 88; doc.setFontSize(15);
+  doc.splitTextToSize(txt(inf.subtitulo), W - 2 * M).forEach((ln) => { doc.text(ln, M, y); y += 7; }); y += 5;
+  doc.setFontSize(10.5); doc.setFont('helvetica', 'normal');
   [['Estudiante', meta.estudiante], ['Número de lista', meta.nn], ['Carrera', meta.carrera], ['Sede', meta.sede], ['Docente', meta.docente],
    ['Fecha de generación', new Date().toLocaleString('es-CL')], ['URL del sistema', meta.urlSistema], ['URL del repositorio', meta.urlRepo],
-   ['URL de la aplicación', (datos.infra || {}).appUrl]].forEach(([k, v]) => { doc.setFont('helvetica', 'bold'); doc.text(txt(k + ':'), M, y); doc.setFont('helvetica', 'normal'); doc.text(txt(v || '-'), M + 50, y); y += 8; });
-  const k = indicadores();
-  y += 6; parrafo(`Estado al generar: avance ${k.avance}% · ${k.controlesImpl}/${k.controlesTot} controles implementados · ${k.aprobadas}/${k.pruebasTot} pruebas aprobadas · ${k.riesgos} riesgos residuales.`);
+   ['URL de la aplicación', (datos.infra || {}).appUrl]].forEach(([e, v]) => { doc.setFont('helvetica', 'bold'); doc.text(txt(e + ':'), M, y); doc.setFont('helvetica', 'normal'); doc.text(txt(v || '-'), M + 50, y); y += 7; });
+  const equipo = (datos.personal || []).filter((x) => x.nombre);
+  if (inf.mostrarEquipo !== 'No' && equipo.length) {
+    y += 2; doc.setFont('helvetica', 'bold'); doc.text(txt('Integrantes:'), M, y); doc.setFont('helvetica', 'normal');
+    equipo.forEach((x) => { doc.text(txt(`${x.nombre} - ${x.cargo || ''}${x.rol ? ' (' + x.rol + ')' : ''}`), M + 50, y); y += 6; });
+  }
+  y += 4; parrafo(plantilla(inf.estado, vars));
+
+  // Introducción (opcional)
+  if (inf.incluirIntro !== 'No') {
+    doc.addPage(); y = M + 6;
+    titulo(inf.introTitulo);
+    if (inf.proposito) { sub('Propósito'); parrafo(inf.proposito); }
+    if (inf.alcance) { sub('Alcance'); parrafo(inf.alcance); }
+    if (inf.escenario) { sub('Escenario'); parrafo(inf.escenario); }
+  }
 
   // 1. Planificación
   doc.addPage(); y = M + 6;
-  titulo('1. Planificación y gestión');
+  secc(1);
   parrafo(`Avance global: ${k.avance}% (${k.porEstado['Completada'] || 0} de ${k.tareas} tareas completadas). Estados: ` + Object.entries(k.porEstado).map((e) => `${e[0]} ${e[1]}`).join(', ') + '.');
+  if (equipo.length) { sub('Equipo del proyecto'); tabla(['Nombre', 'Cargo', 'Rol', 'Correo', 'Responsabilidades'], equipo.map((x) => [x.nombre, x.cargo, x.rol, x.correo, x.responsabilidades].map((v) => v || ''))); }
   sub('Hitos'); tablaDe('hitos');
   ROLES.forEach((r) => { sub('Tareas del rol ' + r); const cols = ['id', 'nombre', 'hito', 'responsable', 'inicio', 'fin', 'dependencia', 'estado'];
     tabla(['ID', 'Tarea', 'Hito', 'Responsable', 'Inicio', 'Término', 'Depende de', 'Estado'], (datos.tareas || []).filter((t) => t.rol === r).map((t) => cols.map((c) => t[c] || ''))); });
@@ -423,7 +498,7 @@ function generarPDF() {
   }
 
   // 2. Problemática
-  titulo('2. Problemática, requerimientos, dependencias y limitaciones');
+  secc(2);
   const p = datos.problema || {};
   sub('Contexto'); parrafo(p.contexto);
   sub('Actores'); lista(p.actores); sub('Procesos afectados'); lista(p.procesos); sub('Necesidades críticas'); lista(p.necesidades);
@@ -434,7 +509,7 @@ function generarPDF() {
   sub('Limitaciones'); tablaDe('limitaciones');
 
   // 3. Cloud
-  titulo('3. Alternativas cloud y selección');
+  secc(3);
   const prov = datos.proveedores || [];
   const crit = [['Servicio equivalente', 'servicio'], ['Seguridad', 'seguridad'], ['Disponibilidad', 'disponibilidad'], ['Costo mensual (USD)', 'costo'], ['Fuente', 'fuente'], ['Beneficios', 'beneficios'], ['Limitaciones', 'limitaciones'], ['Riesgos', 'riesgos']];
   tabla(['Criterio', ...prov.map((x) => x.nombre || '')], crit.map(([l, c]) => [l, ...prov.map((x) => x[c] || '')]));
@@ -443,14 +518,14 @@ function generarPDF() {
   sub('Zona de disponibilidad: ' + (s.zona || '')); parrafo(s.zonaJustificacion);
 
   // 4. NIST
-  titulo('4. Controles NIST SP 800-53 Rev. 5');
+  secc(4);
   sub('Componentes con control de acceso'); tablaDe('componentes');
   sub('Controles seleccionados y justificación'); tablaDe('controles');
   sub('Integración por capas');
   CAPAS.forEach((c) => { const cs = (datos.controles || []).filter((x) => x.capa === c); parrafo(`${c}: ` + (cs.length ? cs.map((x) => `${x.codigo} (${x.punto})`).join('; ') : 'sin controles asignados')); });
 
   // 5. Implementación
-  titulo('5. Implementación');
+  secc(5);
   const f = datos.infra || {};
   sub('Topología');
   tabla(['Componente', 'Valor'], [['VPC', `${f.vpc || ''} ${f.cidr || ''}`], ['Subred pública', f.publica], ['Subred privada', f.privada], ['Instancia web', f.web], ['Instancia BD', f.bd], ['Motor', f.motor], ['App del caso', f.appUrl]].map((r) => r.map((v) => v || '')));
@@ -469,7 +544,7 @@ function generarPDF() {
   sub('Evidencias'); imagenes('bitacora', (b) => b.evidencia || b.configuracion || 'Evidencia', (b) => `${b.descripcion || ''} (ref. ${b.ref || '-'})`);
 
   // 6. Validación
-  titulo('6. Validación');
+  secc(6);
   sub('Pruebas ejecutadas'); tablaDe('pruebas');
   sub('Verificación de controles');
   tabla(['Control', 'Estado', 'Pruebas asociadas'], (datos.controles || []).map((c) => [c.codigo + ' ' + (c.nombre || ''), c.estado || '', (datos.pruebas || []).filter((t) => (t.control || '').includes(c.codigo)).map((t) => `${t.id}: ${t.estado || 'Pendiente'}`).join(', ') || '-']));
@@ -477,17 +552,19 @@ function generarPDF() {
   sub('Capturas de las pruebas'); imagenes('pruebas', (t) => `${t.id} ${t.objetivo || ''}`, (t) => `resultado ${t.estado || 'Pendiente'} (control ${t.control || '-'})`);
 
   // 7. Evaluación final
-  titulo('7. Evaluación final');
+  secc(7);
   sub('Análisis CIA'); tablaDe('cia');
   sub('Riesgos residuales'); tablaDe('riesgos');
   sub('Coherencia con Gobierno TI'); tablaDe('gobierno');
   sub('Acciones de mejora'); tablaDe('mejoras');
   const c = datos.cierre || {}; sub('Conclusiones'); parrafo(c.conclusion); if (c.aprendizajes) { sub('Aprendizajes'); parrafo(c.aprendizajes); }
 
+  if (inf.incluirRef !== 'No' && (inf.referencias || []).length) { titulo(inf.refTitulo); lista(inf.referencias); }
+
   const n = doc.getNumberOfPages();
-  for (let i = 2; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120); doc.text(txt(`TI3062 · ${meta.estudiante || ''} · NN ${meta.nn || ''} · ${CFG.appName}`), M, 290); doc.text(`${i}/${n}`, W - M, 290, { align: 'right' }); }
+  for (let i = 2; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120); doc.text(txt(plantilla(inf.pie, vars)), M, 290); doc.text(`${i}/${n}`, W - M, 290, { align: 'right' }); }
   doc.save(`TI3062_Proyecto_NN${meta.nn || CFG.nn}_${hoy()}.pdf`);
 }
 
 /* ---------------- Inicio ---------------- */
-cargar().then(render);
+cargar().then(() => { completarDatos(); render(); });

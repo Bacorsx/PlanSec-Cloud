@@ -6,156 +6,8 @@ temática del caso, tablas, paleta, tipografía, distribución, nombres de grupo
 motor de BD, firewall, proveedor alternativo, controles NIST, riesgos y mejoras.
 """
 
-# ---------------------------------------------------------------------------
-# Temáticas del caso (app que corre en web-NN). Cada una: tabla padre + tabla hija.
-# Tipos de campo: text, tel, email, date, number, select:Op1|Op2, textarea
-# ---------------------------------------------------------------------------
-TEMAS = [
-    {
-        "clave": "veterinaria", "nombre_app": "VetCuidado",
-        "titulo": "Clínica veterinaria comunal",
-        "contexto": "Una clínica veterinaria de La Serena registra dueños y mascotas en planillas compartidas por correo, lo que provoca pérdida de fichas, datos duplicados y exposición de datos personales de los tutores.",
-        "actores": ["Recepcionista", "Médico veterinario", "Tutor de la mascota", "Administrador TI"],
-        "procesos": ["Registro de tutores", "Ficha de mascotas", "Agenda de atenciones", "Respaldo de fichas"],
-        "padre": {"tabla": "duenos", "titulo": "Tutores", "singular": "tutor", "campos": [
-            ("nombre", "text", "Nombre completo"), ("telefono", "tel", "Teléfono"), ("email", "email", "Correo")]},
-        "hijo": {"tabla": "mascotas", "titulo": "Mascotas", "singular": "mascota", "fk": "dueno_id", "campos": [
-            ("nombre", "text", "Nombre"), ("especie", "select:Perro|Gato|Ave|Exótico", "Especie"),
-            ("fecha_nacimiento", "date", "Fecha de nacimiento"), ("observaciones", "textarea", "Observaciones")]},
-    },
-    {
-        "clave": "biblioteca", "nombre_app": "BiblioRed",
-        "titulo": "Biblioteca comunal digital",
-        "contexto": "La biblioteca comunal controla su catálogo y autores en cuadernos y una planilla local sin respaldo; cuando el equipo falla se pierde el inventario y no se puede consultar desde las sedes.",
-        "actores": ["Bibliotecario", "Lector", "Coordinador de sede", "Administrador TI"],
-        "procesos": ["Alta de autores", "Catalogación de libros", "Consulta del catálogo", "Respaldo del catálogo"],
-        "padre": {"tabla": "autores", "titulo": "Autores", "singular": "autor", "campos": [
-            ("nombre", "text", "Nombre"), ("nacionalidad", "text", "Nacionalidad")]},
-        "hijo": {"tabla": "libros", "titulo": "Libros", "singular": "libro", "fk": "autor_id", "campos": [
-            ("titulo", "text", "Título"), ("isbn", "text", "ISBN"), ("anio", "number", "Año"),
-            ("estado", "select:Disponible|Prestado|En reparación", "Estado")]},
-    },
-    {
-        "clave": "taller", "nombre_app": "TallerPro",
-        "titulo": "Taller mecánico automotriz",
-        "contexto": "Un taller mecánico anota clientes y vehículos en papel; las órdenes se extravían, no hay trazabilidad de quién modificó un registro y los datos de clientes quedan expuestos en el mesón.",
-        "actores": ["Jefe de taller", "Mecánico", "Cliente", "Administrador TI"],
-        "procesos": ["Registro de clientes", "Ingreso de vehículos", "Seguimiento del servicio", "Respaldo de registros"],
-        "padre": {"tabla": "clientes", "titulo": "Clientes", "singular": "cliente", "campos": [
-            ("nombre", "text", "Nombre"), ("rut", "text", "RUT"), ("telefono", "tel", "Teléfono")]},
-        "hijo": {"tabla": "vehiculos", "titulo": "Vehículos", "singular": "vehículo", "fk": "cliente_id", "campos": [
-            ("patente", "text", "Patente"), ("marca", "text", "Marca"), ("modelo", "text", "Modelo"),
-            ("servicio", "select:Mantención|Frenos|Motor|Diagnóstico", "Servicio")]},
-    },
-    {
-        "clave": "canchas", "nombre_app": "ReservaYa",
-        "titulo": "Reserva de canchas deportivas municipales",
-        "contexto": "El municipio administra las reservas de canchas por WhatsApp; se producen dobles reservas, no hay registro histórico y la información de los vecinos circula sin control.",
-        "actores": ["Encargado deportivo", "Vecino", "Coordinador municipal", "Administrador TI"],
-        "procesos": ["Registro de canchas", "Reserva de horarios", "Consulta de disponibilidad", "Respaldo de reservas"],
-        "padre": {"tabla": "canchas", "titulo": "Canchas", "singular": "cancha", "campos": [
-            ("nombre", "text", "Nombre"), ("tipo", "select:Fútbol|Básquetbol|Tenis|Multiuso", "Tipo"),
-            ("sector", "text", "Sector")]},
-        "hijo": {"tabla": "reservas", "titulo": "Reservas", "singular": "reserva", "fk": "cancha_id", "campos": [
-            ("vecino", "text", "Nombre del vecino"), ("fecha", "date", "Fecha"),
-            ("bloque", "select:08-10|10-12|15-17|17-19|19-21", "Bloque horario")]},
-    },
-    {
-        "clave": "ferreteria", "nombre_app": "StockFerre",
-        "titulo": "Inventario de ferretería de barrio",
-        "contexto": "Una ferretería lleva su inventario en una planilla en el computador de caja; hay quiebres de stock, diferencias de inventario y riesgo de pérdida total ante falla del equipo.",
-        "actores": ["Dueño", "Vendedor", "Bodeguero", "Administrador TI"],
-        "procesos": ["Gestión de categorías", "Registro de productos", "Control de stock", "Respaldo del inventario"],
-        "padre": {"tabla": "categorias", "titulo": "Categorías", "singular": "categoría", "campos": [
-            ("nombre", "text", "Nombre"), ("descripcion", "text", "Descripción")]},
-        "hijo": {"tabla": "productos", "titulo": "Productos", "singular": "producto", "fk": "categoria_id", "campos": [
-            ("nombre", "text", "Nombre"), ("sku", "text", "SKU"), ("stock", "number", "Stock"),
-            ("precio", "number", "Precio (CLP)")]},
-    },
-    {
-        "clave": "gimnasio", "nombre_app": "FitControl",
-        "titulo": "Gestión de socios de gimnasio",
-        "contexto": "Un gimnasio registra planes y socios en un cuaderno; no puede verificar vigencias, los datos personales y de salud quedan sin protección y no existe respaldo.",
-        "actores": ["Recepción", "Entrenador", "Socio", "Administrador TI"],
-        "procesos": ["Definición de planes", "Inscripción de socios", "Control de vigencia", "Respaldo de socios"],
-        "padre": {"tabla": "planes", "titulo": "Planes", "singular": "plan", "campos": [
-            ("nombre", "text", "Nombre del plan"), ("valor", "number", "Valor mensual"), ("duracion_meses", "number", "Duración (meses)")]},
-        "hijo": {"tabla": "socios", "titulo": "Socios", "singular": "socio", "fk": "plan_id", "campos": [
-            ("nombre", "text", "Nombre"), ("email", "email", "Correo"), ("fecha_inicio", "date", "Fecha de inicio"),
-            ("estado", "select:Activo|Suspendido|Vencido", "Estado")]},
-    },
-    {
-        "clave": "helpdesk", "nombre_app": "MesaTI",
-        "titulo": "Mesa de ayuda TI para una PYME",
-        "contexto": "Una PYME recibe solicitudes de soporte por correo y teléfono; los casos se pierden, no se mide el tiempo de respuesta y no hay trazabilidad por área.",
-        "actores": ["Técnico de soporte", "Usuario interno", "Jefe de área", "Administrador TI"],
-        "procesos": ["Registro de áreas", "Apertura de tickets", "Seguimiento de estado", "Respaldo de tickets"],
-        "padre": {"tabla": "areas", "titulo": "Áreas", "singular": "área", "campos": [
-            ("nombre", "text", "Nombre del área"), ("responsable", "text", "Responsable")]},
-        "hijo": {"tabla": "tickets", "titulo": "Tickets", "singular": "ticket", "fk": "area_id", "campos": [
-            ("asunto", "text", "Asunto"), ("prioridad", "select:Baja|Media|Alta|Crítica", "Prioridad"),
-            ("estado", "select:Abierto|En curso|Cerrado", "Estado"), ("detalle", "textarea", "Detalle")]},
-    },
-    {
-        "clave": "donaciones", "nombre_app": "RedSolidaria",
-        "titulo": "Banco de alimentos de una ONG",
-        "contexto": "Una ONG registra donantes y donaciones en papel; no puede rendir cuentas, se duplican registros y los datos de donantes quedan expuestos.",
-        "actores": ["Coordinador de la ONG", "Voluntario", "Donante", "Administrador TI"],
-        "procesos": ["Registro de donantes", "Recepción de donaciones", "Rendición de cuentas", "Respaldo de registros"],
-        "padre": {"tabla": "donantes", "titulo": "Donantes", "singular": "donante", "campos": [
-            ("nombre", "text", "Nombre o razón social"), ("tipo", "select:Persona|Empresa|Institución", "Tipo"),
-            ("contacto", "text", "Contacto")]},
-        "hijo": {"tabla": "donaciones", "titulo": "Donaciones", "singular": "donación", "fk": "donante_id", "campos": [
-            ("producto", "text", "Producto"), ("cantidad", "number", "Cantidad"), ("fecha", "date", "Fecha")]},
-    },
-    {
-        "clave": "dental", "nombre_app": "SonrisaAgenda",
-        "titulo": "Agenda de clínica dental",
-        "contexto": "Una clínica dental agenda pacientes en una planilla compartida; se pierden horas, hay acceso indebido a datos sensibles de salud y no existe respaldo cifrado.",
-        "actores": ["Secretaria", "Odontólogo", "Paciente", "Administrador TI"],
-        "procesos": ["Registro de pacientes", "Agendamiento de citas", "Confirmación de horas", "Respaldo de la agenda"],
-        "padre": {"tabla": "pacientes", "titulo": "Pacientes", "singular": "paciente", "campos": [
-            ("nombre", "text", "Nombre"), ("rut", "text", "RUT"), ("telefono", "tel", "Teléfono")]},
-        "hijo": {"tabla": "citas", "titulo": "Citas", "singular": "cita", "fk": "paciente_id", "campos": [
-            ("fecha", "date", "Fecha"), ("hora", "select:09:00|10:00|11:00|12:00|15:00|16:00|17:00", "Hora"),
-            ("tratamiento", "text", "Tratamiento")]},
-    },
-    {
-        "clave": "riego", "nombre_app": "AgroLectura",
-        "titulo": "Registro de lecturas de riego agrícola",
-        "contexto": "Un agricultor del valle del Elqui anota a mano la humedad de sus parcelas; los datos se pierden, no puede analizar tendencias y no tiene respaldo ante fallas.",
-        "actores": ["Agricultor", "Técnico agrícola", "Asesor externo", "Administrador TI"],
-        "procesos": ["Registro de parcelas", "Ingreso de lecturas", "Análisis de humedad", "Respaldo de lecturas"],
-        "padre": {"tabla": "parcelas", "titulo": "Parcelas", "singular": "parcela", "campos": [
-            ("nombre", "text", "Nombre"), ("cultivo", "text", "Cultivo"), ("hectareas", "number", "Hectáreas")]},
-        "hijo": {"tabla": "lecturas", "titulo": "Lecturas", "singular": "lectura", "fk": "parcela_id", "campos": [
-            ("fecha", "date", "Fecha"), ("humedad", "number", "Humedad (%)"), ("temperatura", "number", "Temperatura (°C)")]},
-    },
-    {
-        "clave": "hostal", "nombre_app": "HostalCoquimbo",
-        "titulo": "Reservas de hostal turístico",
-        "contexto": "Un hostal de Coquimbo gestiona habitaciones y reservas en un cuaderno y redes sociales; se producen sobreventas y los datos de huéspedes no tienen protección.",
-        "actores": ["Recepcionista", "Dueña del hostal", "Huésped", "Administrador TI"],
-        "procesos": ["Registro de habitaciones", "Reserva de estadías", "Check-in", "Respaldo de reservas"],
-        "padre": {"tabla": "habitaciones", "titulo": "Habitaciones", "singular": "habitación", "campos": [
-            ("numero", "text", "Número"), ("tipo", "select:Single|Doble|Familiar", "Tipo"), ("tarifa", "number", "Tarifa (CLP)")]},
-        "hijo": {"tabla": "reservas", "titulo": "Reservas", "singular": "reserva", "fk": "habitacion_id", "campos": [
-            ("huesped", "text", "Huésped"), ("entrada", "date", "Entrada"), ("salida", "date", "Salida")]},
-    },
-    {
-        "clave": "laboratorio", "nombre_app": "LabPresta",
-        "titulo": "Préstamo de equipos de laboratorio",
-        "contexto": "El laboratorio de redes de una sede presta equipos (routers, switches, osciloscopios) con una hoja de firma; hay equipos extraviados y no se sabe quién tiene cada uno.",
-        "actores": ["Pañolero", "Docente", "Estudiante", "Administrador TI"],
-        "procesos": ["Inventario de equipos", "Registro de préstamos", "Devolución", "Respaldo del inventario"],
-        "padre": {"tabla": "equipos", "titulo": "Equipos", "singular": "equipo", "campos": [
-            ("nombre", "text", "Nombre"), ("codigo", "text", "Código de inventario"),
-            ("tipo", "select:Router|Switch|Osciloscopio|Multímetro|Otro", "Tipo")]},
-        "hijo": {"tabla": "prestamos", "titulo": "Préstamos", "singular": "préstamo", "fk": "equipo_id", "campos": [
-            ("solicitante", "text", "Solicitante"), ("fecha_prestamo", "date", "Fecha de préstamo"),
-            ("estado", "select:Prestado|Devuelto|Atrasado", "Estado")]},
-    },
-]
+# Temáticas del caso (patrones de negocio y vocabulario): ver temas.py
+from temas import TEMAS, RF_PATRON  # noqa: E402,F401
 
 # ---------------------------------------------------------------------------
 # Apariencia del sistema de gestión (Cloudflare Pages) y de la app del caso
@@ -247,11 +99,25 @@ CONTROLES = [
     {"codigo": "AU-2", "nombre": "Event Logging", "riesgo": "Cambios no autorizados sin trazabilidad", "punto": "auditd con reglas sobre sudo, passwd, sudoers y sshd_config", "capa": "Aplicación", "req": "seguridad"},
     {"codigo": "AU-6", "nombre": "Audit Record Review", "riesgo": "Incidentes no detectados por falta de revisión", "punto": "Revisión periódica con aureport/ausearch por el grupo auditoría", "capa": "Aplicación", "req": "seguridad"},
     {"codigo": "AC-17", "nombre": "Remote Access", "riesgo": "Acceso remoto por fuerza bruta o como root", "punto": "sshd_config: sin root, sin contraseña, AllowGroups, MaxAuthTries 3", "capa": "Red", "req": "seguridad"},
-    {"codigo": "AC-12", "nombre": "Session Termination", "riesgo": "Sesiones abandonadas reutilizadas por terceros", "punto": "ClientAliveInterval/ClientAliveCountMax y MaxSessions en sshd", "capa": "Identidad", "req": "seguridad"},
+    {"codigo": "AC-12", "nombre": "Session Termination", "riesgo": "Sesiones abandonadas reutilizadas por terceros", "punto": "App: sesión expira a los 15 min de inactividad y a las 8 h; SSH: ClientAliveInterval/CountMax y MaxSessions", "capa": "Identidad", "req": "seguridad"},
     {"codigo": "CP-9", "nombre": "System Backup", "riesgo": "Pérdida de datos por falla o error humano", "punto": "cron diario con dump de la BD hacia /respaldos (LUKS)", "capa": "Proveedor", "req": "disponibilidad"},
     {"codigo": "CP-10", "nombre": "System Recovery and Reconstitution", "riesgo": "Imposibilidad de recuperar el servicio tras un incidente", "punto": "Restauración probada del respaldo y snapshots de volúmenes EBS", "capa": "Proveedor", "req": "disponibilidad"},
     {"codigo": "IA-5", "nombre": "Authenticator Management", "riesgo": "Credenciales débiles o expuestas en el código", "punto": "Llaves ED25519 por usuario y credenciales de BD en /etc/ti3062/db.ini fuera del repositorio", "capa": "Aplicación", "req": "seguridad"},
     {"codigo": "CM-7", "nombre": "Least Functionality", "riesgo": "Servicios y puertos innecesarios que amplían la superficie de ataque", "punto": "Solo 80/443/22 en web y puerto BD/22 en bd; firewall de host por defecto deny", "capa": "Red", "req": "rendimiento"},
+]
+
+# Controles NIST obligatorios para la aplicación web del caso (todos quedan implementados por la app y el instalador)
+CONTROLES_APP = [
+    {"codigo": "AC-3", "nombre": "Access Enforcement", "riesgo": "Usuarios que ejecutan acciones fuera de su rol", "punto": "App: roles admin / operador / auditor verificados en cada acción del servidor", "capa": "Aplicación", "req": "seguridad"},
+    {"codigo": "AC-7", "nombre": "Unsuccessful Logon Attempts", "riesgo": "Fuerza bruta contra cuentas de la aplicación", "punto": "App: bloqueo de 15 min tras 5 intentos fallidos, registrado en auditoria_app", "capa": "Identidad", "req": "seguridad"},
+    {"codigo": "AC-8", "nombre": "System Use Notification", "riesgo": "Uso no autorizado sin advertencia legal", "punto": "App: aviso de uso autorizado y registro en la pantalla de ingreso; banner SSH", "capa": "Aplicación", "req": "seguridad"},
+    {"codigo": "IA-2", "nombre": "Identification and Authentication (Organizational Users)", "riesgo": "Acciones anónimas sin responsable", "punto": "App: usuarios nominativos en usuarios_app; cada registro guarda su autor", "capa": "Identidad", "req": "seguridad"},
+    {"codigo": "IA-5(1)", "nombre": "Password-based Authentication", "riesgo": "Contraseñas débiles o almacenadas en claro", "punto": "App: mínimo 12 caracteres, hash bcrypt/argon2 (password_hash), cambio de clave por el usuario", "capa": "Identidad", "req": "seguridad"},
+    {"codigo": "SC-8", "nombre": "Transmission Confidentiality and Integrity", "riesgo": "Intercepción de datos entre el navegador, web y la BD", "punto": "HTTPS con redirección desde HTTP + TLS 1.2/1.3 web→bd con verificación del certificado (CA propia)", "capa": "Red", "req": "seguridad"},
+    {"codigo": "SC-23", "nombre": "Session Authenticity", "riesgo": "Robo o fijación de la sesión y CSRF", "punto": "App: cookie HttpOnly/Secure/SameSite=Strict, regeneración del ID al ingresar y token CSRF en cada formulario", "capa": "Aplicación", "req": "seguridad"},
+    {"codigo": "SI-10", "nombre": "Information Input Validation", "riesgo": "Inyección SQL, XSS o datos inválidos", "punto": "App: consultas preparadas, listas blancas por campo, escape de salida, CSP y CSV sin fórmulas", "capa": "Aplicación", "req": "seguridad"},
+    {"codigo": "SI-11", "nombre": "Error Handling", "riesgo": "Mensajes que revelan estructura interna o credenciales", "punto": "App: errores genéricos al usuario y detalle solo en el log del servidor; display_errors Off", "capa": "Aplicación", "req": "seguridad"},
+    {"codigo": "AU-9", "nombre": "Protection of Audit Information", "riesgo": "Borrado o alteración del registro de actividad", "punto": "auditoria_app: el usuario de la app solo tiene INSERT/SELECT (sin UPDATE ni DELETE)", "capa": "Aplicación", "req": "seguridad"},
 ]
 
 RIESGOS_RESIDUALES = [
@@ -264,9 +130,9 @@ RIESGOS_RESIDUALES = [
 ]
 
 MEJORAS = [
-    {"accion": "Centralizar logs de auditd y auth.log en un servidor o servicio externo", "control": "AU-9", "impacto": "Protege la evidencia ante un compromiso de root"},
+    {"accion": "Centralizar auditd, auth.log y auditoria_app en un servidor o servicio externo", "control": "AU-9(2)", "impacto": "Protege la evidencia ante un compromiso de root"},
     {"accion": "Agregar réplica de la base de datos en otra zona de disponibilidad", "control": "CP-7", "impacto": "Reduce el punto único de falla de bd-NN"},
-    {"accion": "Publicar la app con certificado TLS válido (Let's Encrypt) y redirección HTTP→HTTPS", "control": "SC-8", "impacto": "Confidencialidad e integridad en tránsito"},
+    {"accion": "Publicar la app con un dominio y certificado de CA pública (Let's Encrypt) en lugar del autofirmado", "control": "SC-8", "impacto": "Elimina la advertencia del navegador y el riesgo de aceptar certificados falsos"},
     {"accion": "Extender MFA TOTP a los grupos de desarrollo y auditoría", "control": "IA-2(2)", "impacto": "Reduce el riesgo de suplantación con llaves robadas"},
     {"accion": "Instalar fail2ban para bloquear IPs con intentos fallidos repetidos", "control": "AC-7", "impacto": "Mitiga fuerza bruta contra SSH y la app"},
     {"accion": "Copiar respaldos cifrados a almacenamiento externo (S3 u otra región)", "control": "CP-6", "impacto": "Respaldo fuera del sitio ante pérdida de la instancia"},

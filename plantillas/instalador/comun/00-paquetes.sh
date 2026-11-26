@@ -5,7 +5,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"; source "$DIR/../config.env"
 ROL="${1:?Uso: $0 web|bd}"; [[ $EUID -eq 0 ]] || { echo "Ejecuta con sudo"; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
-COMUNES="auditd audispd-plugins libpam-google-authenticator cryptsetup $FIREWALL curl"
+COMUNES="auditd audispd-plugins libpam-google-authenticator cryptsetup $FIREWALL curl tcpdump"
 apt-get update
 if [[ "$ROL" == web ]]; then
   CLIENTE_BD=$([[ $MOTOR == mariadb ]] && echo mariadb-client || echo postgresql-client)

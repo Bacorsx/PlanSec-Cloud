@@ -35,9 +35,10 @@ flowchart LR
 ```
 
 1. **Generación** (en tu PC): `generar.py` toma el número de lista (NN), el nombre y el usuario de GitHub. Con esos datos calcula una semilla y elige una combinación del `catalogo.py`; luego rellena las plantillas.
-2. **Sistema de gestión** (estático, sin backend): reemplaza el informe tradicional. Tiene 8 módulos (resumen con indicadores automáticos, planificación con cronograma, problemática y requerimientos, análisis multicloud, controles NIST SP 800-53, implementación con bitácora y capturas, validación y cierre, documento). Guarda en el navegador, exporta e importa JSON y **genera el PDF desde los datos** con jsPDF.
+2. **Sistema de gestión** (estático, sin backend): reemplaza el informe tradicional. Tiene 10 módulos (resumen con indicadores automáticos, equipo y roles con responsables, planificación con cronograma, problemática y requerimientos, análisis multicloud, controles NIST SP 800-53, implementación con bitácora y capturas, validación y cierre, contenido del informe editable —portada, introducción, títulos y párrafos de cada sección, pie y referencias—, documento). Guarda en el navegador, exporta e importa JSON y **genera el PDF desde los datos** con jsPDF.
 3. **AWS es el receptor del despliegue**: los scripts de `instalador/aws/` crean la red y las instancias. Los de `instalador/web`, `instalador/bd` y `instalador/comun` dejan cada servidor configurado y endurecido.
-4. **Guía**: `PASO-A-PASO.md` trae los comandos exactos con las IP, nombres de usuarios y grupos de ese estudiante.
+4. **App del caso** (en web-NN): aplicación PHP con funciones propias de su negocio según el patrón de la temática, usuarios por rol, auditoría inmutable y un panel en vivo que consulta bd-NN por TLS verificado.
+5. **Guía**: `PASO-A-PASO.md` trae los comandos exactos con las IP, nombres de usuarios y grupos de ese estudiante.
 
 ## Plataformas compatibles
 
@@ -137,7 +138,7 @@ sudo bash bd/01-configurar-bd.sh            # base ti3062_NN, 2 tablas, usuario 
 ssh web-NN
 git clone https://github.com/<usuario>/ti3062-NN.git && cd ti3062-NN/instalador
 sudo bash comun/00-paquetes.sh web
-sudo bash web/01-instalar-web.sh            # Apache+PHP+TLS, app en / y sistema en /gestion
+sudo bash web/01-instalar-web.sh            # HTTPS, CA de bd, admin de la app; app en / y sistema en /gestion
 ```
 
 ### 6. Endurecimiento (ambas)
@@ -161,7 +162,7 @@ sudo bash bd/04-probar-restauracion.sh      # restauración probada
 
 ### 8. Validar y generar el informe
 
-Ejecuta las pruebas P1–P8 (precargadas en el módulo *Validación*), sube capturas y hallazgos, completa CIA, riesgos y mejoras, y pulsa **Generar PDF**. Exporta el JSON a `data/proyecto-NN.json` y haz push.
+Ejecuta las pruebas P1–P13 (precargadas en el módulo *Validación*), sube capturas y hallazgos, completa CIA, riesgos y mejoras, y pulsa **Generar PDF**. Exporta el JSON a `data/proyecto-NN.json` y haz push.
 
 | Prueba | Resultado esperado |
 |---|---|
@@ -173,6 +174,11 @@ Ejecuta las pruebas P1–P8 (precargadas en el módulo *Validación*), sube capt
 | P6 Admin sin TOTP | Rechazado |
 | P7 Comando no autorizado en sudo | Denegado y registrado en auditd |
 | P8 Volumen LUKS cerrado | Datos ilegibles |
+| P9 Tráfico web → bd | Cifrado (tcpdump ilegible); sin TLS se rechaza |
+| P10 5 claves erróneas en la app | Cuenta bloqueada y registrada |
+| P11 Auditor intenta registrar | Denegado y registrado |
+| P12 XSS / inyección SQL | Se guarda y muestra como texto |
+| P13 Borrar la auditoría de la app | Permiso denegado |
 
 > ⚠ En AWS Academy las instancias se detienen al cerrar el laboratorio: web conserva su IP elástica, pero el volumen LUKS debe abrirse a mano (`bd/02-luks-respaldos.sh abrir`).
 
@@ -180,11 +186,23 @@ Ejecuta las pruebas P1–P8 (precargadas en el módulo *Validación*), sube capt
 
 | Dimensión | Opciones |
 |---|---|
-| Temática del caso | 12 (veterinaria, biblioteca, taller, canchas, ferretería, gimnasio, mesa de ayuda, ONG, dental, riego, hostal, laboratorio) |
+| Temática del caso | 15 temáticas sobre 5 patrones de negocio (tabla siguiente) |
 | Sistema de gestión | 8 nombres · 8 paletas con modo oscuro · 8 tipografías · 3 distribuciones · 4 estilos de tarjeta · 3 gráficos · 3 estilos de PDF |
 | App del caso | Paleta, tipografía y 3 distribuciones |
 | Infraestructura | MariaDB/PostgreSQL · ufw/nftables · us-east-1a/b/c · 4 esquemas de grupos y usuarios · horario y retención del respaldo |
 | Contenido | Proveedor alternativo (Azure, GCP, OCI), características, controles NIST extra, riesgos y mejoras |
+
+### Temáticas de la app del caso
+
+| Patrón | Funciones | Temáticas |
+|---|---|---|
+| Inventario | Stock por ítem, entradas y salidas en transacción, rechazo de stock negativo, stock crítico, valorización, más vendidos | Ferretería, banco de alimentos (ONG), gestor de bodega, heladería |
+| Reservas | Agenda por recurso sin dobles reservas (bloque horario o rango de fechas), disponibilidad, cancelar y completar, ocupación | Clínica veterinaria, canchas municipales, clínica dental, hostal |
+| Préstamos | Solo se presta lo disponible, devolución, atrasos, mantención, más prestados | Biblioteca, laboratorio de redes |
+| Órdenes | Flujo de estados sin retroceso, prioridad o severidad, tiempos de cierre, montos o RTO/MTTR y disponibilidad | Taller mecánico, mesa de ayuda TI, continuidad operativa de data center, diseño y armado de PC (con vista animada de cómo funciona cada componente) |
+| Membresías | Planes con valor y duración, vigencia calculada, renovar/suspender, por vencer, ingreso estimado | Gimnasio |
+
+Todas incluyen login con roles (administrador, operador, auditor), bloqueo tras 5 intentos, sesión de 15 min, CSRF, CSP, auditoría inmutable, exportación CSV y el panel "camino del dato" en vivo. El diseño es una interfaz oscura de operación (modo claro opcional) con estados que siempre combinan color, ícono y texto.
 
 `instalador/perfil-variantes.json` resume la combinación de cada estudiante. Usa `--semilla` para obtener otra.
 
@@ -192,10 +210,12 @@ Ejecuta las pruebas P1–P8 (precargadas en el módulo *Validación*), sube capt
 
 ```
 generar.py            Generador (CLI)
-catalogo.py           Temáticas, paletas, controles NIST, riesgos, mejoras, proveedores
+catalogo.py           Paletas, controles NIST (infraestructura y app), riesgos, mejoras, proveedores
+temas.py              Temáticas, patrones de negocio y requerimientos por patrón
 plantillas/
   sistema/            index.html, app.js (módulos + PDF), styles.css
-  app-caso/           index.php (formulario + listado), estilo.css
+  app-caso/publico/   index.php, api.php (en vivo), app.js, estilo.css  → webroot
+  app-caso/privado/   nucleo.php, patrones.php, vista_equipo.php, crear-usuario.php → fuera del webroot
   instalador/
     config.env        Variables del estudiante
     aws/              01-crear-infra · 02-nat-temporal · 03-snapshots-y-evidencias
@@ -209,7 +229,7 @@ plantillas/
 ## Seguridad y uso responsable
 
 - Nunca subas llaves privadas (`.pem`), secretos TOTP, códigos QR, códigos de emergencia ni `/etc/ti3062/db.ini`; el `.gitignore` generado excluye los más comunes.
-- Las credenciales de la app viven fuera del código; el usuario de BD no tiene `ALL` ni acceso desde `'%'`.
+- Las credenciales de la app viven fuera del código; el usuario de BD no tiene `ALL`, `DELETE` ni acceso desde `'%'`, y solo se conecta por TLS verificado.
 - Los datos precargados son un **borrador**: resultados, capturas y hallazgos deben salir de la infraestructura real de cada estudiante.
 
 ## Créditos

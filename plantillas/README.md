@@ -8,7 +8,7 @@ Sistema web de gestión, planificación y generación automática del informe de
 | **Sistema publicado** | https://ti3062-{{NN}}.pages.dev |
 | **Repositorio** | https://github.com/{{GITHUB}}/ti3062-{{NN}} |
 | **Caso** | {{APP_CASO}} — {{TEMA_TITULO}} |
-| **App del caso (AWS)** | http://&lt;IP_PUBLICA_web-{{NN}}&gt;/ (IP elástica fija) |
+| **App del caso (AWS)** | https://&lt;IP_ELASTICA_web-{{NN}}&gt;/ (HTTP redirige a HTTPS) |
 
 ## Descripción
 
@@ -16,12 +16,19 @@ El sistema reemplaza al informe tradicional. Sus módulos son: panel de resumen 
 
 La infraestructura se despliega en **AWS** (VPC-{{NN}} 10.{{NNIP}}.0.0/16) con `web-{{NN}}` en la subred pública y `bd-{{NN}}` ({{MOTOR_NOMBRE}}) en la subred privada.
 
+## Aplicación del caso ({{APP_CASO}})
+
+- **Funciones del negocio** (no es solo un formulario): las define el patrón de la temática (inventario, reservas, préstamos, órdenes o membresías). Incluye reglas validadas en el servidor dentro de transacciones, disponibilidad o estados, reportes y exportación CSV.
+- **Usuarios y roles**: administrador (todo), operador (registra y opera) y auditor (consulta, reportes y auditoría). Contraseñas con hash, bloqueo tras 5 intentos y sesión de 15 min.
+- **Datos en vivo y cifrados**: el panel consulta cada 5 s a bd-{{NN}} por **TLS 1.2/1.3 con certificado verificado** (CA propia del proyecto) y muestra el camino del dato.
+- **4 tablas relacionadas** en {{MOTOR_NOMBRE}}: `usuarios_app`, `{{TABLA_PADRE}}`, `{{TABLA_HIJO}}` y `auditoria_app` (registro que la app no puede borrar).
+
 ## Estructura
 
 ```
 index.html · app.js · styles.css   Sistema de gestión (Cloudflare Pages y copia en web-{{NN}}/gestion)
 data/proyecto-{{NN}}.json          Datos del proyecto (importables para restaurar todo)
-app-caso/                          Aplicación PHP del caso ({{TABLA_PADRE}} → {{TABLA_HIJO}})
+app-caso/publico · app-caso/privado   App PHP del caso: webroot mínimo y lógica fuera del webroot
 instalador/aws/                    Creación de VPC, SG, EC2, NAT temporal y snapshots (AWS CLI/CloudShell)
 instalador/comun/ web/ bd/         Paquetes, hardening, MFA, auditd, firewall, BD, LUKS, respaldo
 PASO-A-PASO.md                     Guía completa de la actividad

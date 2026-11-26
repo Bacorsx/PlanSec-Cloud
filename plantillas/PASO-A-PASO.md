@@ -52,6 +52,8 @@ flowchart LR
 
 En el sistema, revisa y **reescribe con tus palabras** lo que viene precargado:
 
+- **Equipo y roles**: registra a cada integrante con su cargo y rol (Administración, Desarrollo, Auditoría). En *Gestión y planificación* elige el **responsable** de cada tarea desde esa lista.
+- **Contenido del informe**: edita el título, la introducción (propósito, alcance, escenario), el título y párrafo de cada sección, el pie de página y las referencias. Todo lo que sale en el PDF se puede cambiar ahí o en los otros módulos.
 - **Problemática**: contexto, actores, procesos, necesidades, impacto. Ajusta el caso si tu docente te asignó otro.
 - **Características clave** (3–5) con cómo influyen en el diseño.
 - **Requerimientos**: ≥4 RF y ≥4 RNF (seguridad, disponibilidad y rendimiento), cada uno con control NIST.
@@ -72,6 +74,9 @@ En el sistema, revisa y **reescribe con tus palabras** lo que viene precargado:
    ```
 4. Descarga `llave-ti3062-{{NN}}.pem` (CloudShell → *Actions* → *Download file*, ruta `ti3062-{{NN}}/instalador/aws/llave-ti3062-{{NN}}.pem`) y guárdala en `~/.ssh/` de tu PC. **No la subas a GitHub.**
 5. Captura la consola: mapa de recursos de la VPC, subredes, tablas de rutas, SG e instancias → bitácora.
+6. Abre **CloudTrail** en la consola y captura el `AccessDeniedException`: es la evidencia del hallazgo precargado **HZ-01** (sin auditoría centralizada → control compensatorio en el SO).
+
+> ⚠ Si lanzas las instancias desde la consola, elige **Ubuntu Server 24.04 LTS** en la lista de AMI. El ícono *Ubuntu* de Inicio rápido puede traer 26.04, que usa `sudo-rs` (no acepta las directivas de registro de sudo de los scripts). `01-crear-infra.sh` ya fija 24.04.
 
 > Si prefieres la consola web, sigue la guía de pulentoski *Cloud/AWS/VPC con subred pública y subred privada en AWS* con tus valores NN. El resultado debe ser idéntico al de la tabla de tu perfil.
 
@@ -110,9 +115,11 @@ sudo bash comun/00-paquetes.sh bd          # mientras existe la NAT temporal
 Luego, en **CloudShell**: `bash 02-nat-temporal.sh eliminar` → captura la tabla de rutas sin `0.0.0.0/0`.
 
 ```bash
-sudo bash bd/01-configurar-bd.sh            # motor en 10.{{NNIP}}.2.10, base, tablas y app_{{NN}}
-sudo cat /root/.ti3062-clave-app            # la necesitarás en web (no la captures)
+sudo bash bd/01-configurar-bd.sh            # CA del proyecto + TLS obligatorio, 4 tablas, app_{{NN}} sin DELETE
+sudo cat /root/.ti3062-clave-app            # contraseña de la app: SECRETA (no la captures)
+sudo cat /root/.ti3062-ca-bd.b64            # certificado de la CA en una línea: público (sí puedes capturarlo)
 ```
+📸 Captura la salida de *Evidencia*: GRANTs sin ALL ni DELETE, `auditoria_app` solo INSERT/SELECT y TLS activo (`require_secure_transport` / `ssl = on`).
 
 ## Fase 5 · Aplicación del caso en web-{{NN}}
 
@@ -120,10 +127,18 @@ sudo cat /root/.ti3062-clave-app            # la necesitarás en web (no la capt
 ssh web-{{NN}}
 git clone https://github.com/{{GITHUB}}/ti3062-{{NN}}.git && cd ti3062-{{NN}}/instalador
 sudo bash comun/00-paquetes.sh web
-sudo bash web/01-instalar-web.sh            # pide la clave de app_{{NN}}; prueba P3 al final
+sudo bash web/01-instalar-web.sh            # pide la línea de la CA, la clave de app_{{NN}} y crea el administrador de la app
 ```
-Abre `http://<IP_PUBLICA_WEB>/`: registra un {{TABLA_PADRE}} y luego un {{TABLA_HIJO}} asociado → **P1**.
-También queda una copia del sistema de gestión en `http://<IP_PUBLICA_WEB>/gestion/`.
+El script prueba la conexión y debe mostrar `Conexión OK … TLSv1.3 … certificado verificado: sí` (P3 / P9).
+
+1. Abre `http://<IP_ELASTICA_WEB>/` → redirige a **HTTPS** (acepta el certificado autofirmado; es un riesgo residual documentado).
+2. Ingresa con el administrador. Lee el aviso de uso autorizado (AC-8).
+3. **Usuarios** → crea un **operador** y un **auditor** (mínimo privilegio en la app: AC-3/AC-6).
+4. Registra {{TABLA_PADRE}} y luego operaciones de {{TABLA_HIJO}}: prueba las reglas del negocio (la app rechaza lo que no corresponde) → **P1**.
+5. **Panel**: el *camino del dato en vivo* muestra Navegador → web-{{NN}} → bd-{{NN}} con la versión TLS, el cifrado y la latencia, actualizados cada 5 s. 📸 Captúralo: es la evidencia de SC-8.
+6. **Reportes** y **Auditoría** (como auditor): exporta el CSV y revisa los eventos registrados.
+
+También queda una copia del sistema de gestión en `https://<IP_ELASTICA_WEB>/gestion/`.
 
 ## Fase 6 · Endurecimiento del SO (ambas instancias)
 
@@ -151,7 +166,9 @@ sudo cp -r /home/ubuntu/ti3062-{{NN}} /srv/areas/administracion/      # como ubu
 sudo bash /srv/areas/administracion/ti3062-{{NN}}/instalador/comun/99-cerrar-ubuntu.sh   # como {{U_ADMIN}}
 ```
 
-Evidencias rápidas: `sudo bash comun/evidencias.sh identidad|sudo|ssh|mfa|auditd|firewall`.
+Evidencias rápidas: `sudo bash comun/evidencias.sh identidad|sudo|ssh|mfa|auditd|sesiones|firewall` (`sesiones`: accesos con IP de origen, intentos fallidos, conectados y último acceso por usuario).
+
+> **Si quedas fuera** (TOTP perdido o SSH mal configurado): AWS Academy no permite consola serial, así que se rescata el disco. Detén la instancia → *Volumes* → desconecta su disco raíz → lanza una Ubuntu temporal **en la misma zona** con la llave `.pem` → **ya encendida**, adjunta el disco → en ella: `sudo mount /dev/nvme1n1p1 /mnt` (revisa el nombre con `lsblk`), `sudo mv /mnt/etc/ssh/sshd_config.d/10-ti3062.conf{,.bak}` y `sudo cp /mnt/etc/pam.d/sshd.bak-ti3062 /mnt/etc/pam.d/sshd`, `sudo umount /mnt` → desconecta, vuelve a adjuntarlo a tu instancia como `/dev/sda1` → enciende, entra como `{{U_ADMIN}}` solo con llave y vuelve a ejecutar `01-hardening.sh`. Termina la instancia temporal. Documenta el incidente como hallazgo.
 
 ## Fase 7 · Cifrado, respaldo y disponibilidad (bd-{{NN}})
 
@@ -165,7 +182,7 @@ Justifica la zona `{{ZONA}}` en *Análisis cloud → Selección*.
 
 ## Fase 8 · Validación (H3 · criterio 4.1.5)
 
-Los comandos de **P1–P8** ya están en el módulo *Validación*. Para cada prueba: ejecútala, escribe el **resultado obtenido**, marca Aprobada/Fallida y sube la captura (hostname visible).
+Los comandos de **P1–P13** ya están en el módulo *Validación* (P1–P8 de la pauta + P9–P13 de la aplicación web). Para cada prueba: ejecútala, escribe el **resultado obtenido**, marca Aprobada/Fallida y sube la captura (hostname visible).
 
 | ID | Dónde | Clave |
 |---|---|---|
@@ -177,6 +194,11 @@ Los comandos de **P1–P8** ya están en el módulo *Validación*. Para cada pru
 | P6 | Tu PC | admin con código incorrecto rechazado |
 | P7 | web o bd | `{{U_DEV}}` ejecuta `sudo cat /etc/shadow` → denegado; `{{U_AUDIT}}` lo ve con `ausearch` |
 | P8 | bd-{{NN}} | `bd/02-luks-respaldos.sh cerrar` → `strings` ilegible; luego `abrir` |
+| P9 | bd-{{NN}} + web-{{NN}} | `tcpdump` en bd mientras registras algo: no se lee el texto; conexión sin TLS rechazada |
+| P10 | App | 5 claves erróneas → cuenta bloqueada 15 min; se ve en *Auditoría* |
+| P11 | App | como **auditor** intenta registrar → «Tu rol no permite esta acción» (`acceso_denegado`) |
+| P12 | App | registra `<script>alert(1)</script>` y `' OR '1'='1` → se muestra como texto |
+| P13 | web-{{NN}} | `DELETE FROM auditoria_app` con app_{{NN}} → *command denied* |
 
 Registra **hallazgos** (falla, desviación, comportamiento esperado o riesgo) vinculados a RF/RNF y control NIST. Una prueba fallida bien documentada con su corrección no resta.
 
@@ -193,7 +215,7 @@ Registra **hallazgos** (falla, desviación, comportamiento esperado o riesgo) vi
 - [ ] web-{{NN}} usa IP elástica: no cambia al reiniciar el laboratorio (si la liberaste, actualiza `~/.ssh/config`, el README y *Implementación → URL de la app*).
 - [ ] Si cambió **tu** IP: en CloudShell `aws ec2 authorize-security-group-ingress --group-id <sg-web> --protocol tcp --port 22 --cidr <NUEVA_IP>/32` (y elimina la anterior); en web vuelve a ejecutar `sudo bash comun/01-hardening.sh web <NUEVA_IP>` (reescribe la regla SSH de {{FIREWALL}}). Hazlo **antes** de perder la sesión.
 - [ ] Tras reiniciar bd: `sudo bash bd/02-luks-respaldos.sh abrir` (o el respaldo nocturno falla — riesgo residual documentado).
-- [ ] Practica: modificar un dato en el sistema y regenerar el PDF; ejecutar cualquier P1–P8 en vivo.
+- [ ] Practica: modificar un dato en el sistema y regenerar el PDF; ejecutar cualquier prueba P1–P13 en vivo; mostrar el panel en vivo de la app (canal TLS web → bd).
 - [ ] Verifica que ninguna captura muestre llaves privadas, secreto/QR TOTP o códigos de emergencia.
 
 ## Plan sugerido de commits (≥15 en ≥3 días)

@@ -97,9 +97,9 @@ def construir_datos(p, nn, nombre, github, inicio):
     hitos = [
         {"id": "H1", "nombre": "Análisis y diseño", "fecha": d(5), "criterio": "Problemática, requerimientos, comparativa cloud y controles NIST registrados"},
         {"id": "H2", "nombre": "Implementación segura en AWS", "fecha": d(13), "criterio": "VPC, SG, instancias endurecidas, app del caso operativa y respaldo cifrado"},
-        {"id": "H3", "nombre": "Validación y cierre", "fecha": d(19), "criterio": "Pruebas P1–P8, hallazgos, análisis CIA, riesgos y PDF generado"},
+        {"id": "H3", "nombre": "Validación y cierre", "fecha": d(19), "criterio": "Pruebas P1–P13, hallazgos, análisis CIA, riesgos y PDF generado"},
     ]
-    resp = lambda rol: f"{nombre} ({rol})"
+    resp = lambda rol: nombre   # se elige desde "Equipo y roles" en el sistema
     tareas_base = [
         ("Levantar problemática, actores y requerimientos RF/RNF", "H1", "Auditoría", 0, 2, ""),
         ("Comparar AWS vs " + p["alt"]["nombre"] + " con calculadoras oficiales", "H1", "Administración", 1, 3, "T01"),
@@ -107,13 +107,13 @@ def construir_datos(p, nn, nombre, github, inicio):
         ("Crear VPC-%s, subredes, IGW y tablas de rutas" % nn, "H2", "Administración", 5, 6, "T02"),
         ("Configurar sg-web-%s y sg-bd-%s con mínimo privilegio" % (nn, nn), "H2", "Administración", 6, 6, "T04"),
         ("Lanzar web-%s y bd-%s; instalar paquetes con NAT temporal y retirarla" % (nn, nn), "H2", "Administración", 6, 7, "T05"),
-        (f"Desarrollar app {t['nombre_app']} ({P['tabla']}/{H['tabla']}) y desplegar en web-{nn}", "H2", "Desarrollo", 5, 9, "T06"),
-        (f"Configurar {m['nombre']} y usuario app_{nn} de mínimo privilegio", "H2", "Desarrollo", 7, 8, "T06"),
+        (f"Desarrollar app {t['nombre_app']} ({P['tabla']}/{H['tabla']} + usuarios y auditoría) y desplegar en web-{nn} con HTTPS", "H2", "Desarrollo", 5, 9, "T06"),
+        (f"Configurar {m['nombre']} con TLS (CA propia), usuario app_{nn} de mínimo privilegio y auditoría inmutable", "H2", "Desarrollo", 7, 8, "T06"),
         ("Endurecer SO: grupos, sudoers, SSH, TOTP y firewall de host", "H2", "Administración", 8, 11, "T06"),
         ("Configurar auditd y revisar registros", "H2", "Auditoría", 10, 11, "T09"),
         ("Volumen LUKS /respaldos, cron de respaldo y restauración probada", "H2", "Administración", 11, 12, "T08"),
         ("Snapshots de volúmenes y justificación de AZ", "H2", "Administración", 12, 13, "T11"),
-        ("Ejecutar pruebas P1–P8 y registrar hallazgos", "H3", "Auditoría", 14, 16, "T12"),
+        ("Ejecutar pruebas P1–P13 y registrar hallazgos", "H3", "Auditoría", 14, 16, "T12"),
         ("Análisis CIA, riesgos residuales, Gobierno TI y mejoras", "H3", "Auditoría", 16, 18, "T13"),
         ("Generar PDF, revisar README y preparar defensa", "H3", "Desarrollo", 18, 19, "T14"),
     ]
@@ -131,24 +131,35 @@ def construir_datos(p, nn, nombre, github, inicio):
     sel = r.sample(caract_pool, r.choice([4, 5]))
     caracteristicas = [{"id": f"C{i+1}", "descripcion": a, "diseno": b} for i, (a, b) in enumerate(sel)]
 
-    requerimientos = [
-        {"id": "RF-01", "tipo": "RF", "categoria": "Funcional", "descripcion": f"Registrar {P['singular']} mediante un formulario que inserta en la tabla {P['tabla']}.", "control": "SI-10"},
-        {"id": "RF-02", "tipo": "RF", "categoria": "Funcional", "descripcion": f"Registrar {H['singular']} asociado a un {P['singular']} existente (clave foránea {H['fk']}).", "control": "SI-10"},
-        {"id": "RF-03", "tipo": "RF", "categoria": "Funcional", "descripcion": f"Listar {H['titulo'].lower()} con su {P['singular']} obtenidos desde la base de datos.", "control": "AC-3"},
-        {"id": "RF-04", "tipo": "RF", "categoria": "Funcional", "descripcion": f"Listar {P['titulo'].lower()} con la cantidad de {H['titulo'].lower()} asociados.", "control": "AC-3"},
-        {"id": "RF-05", "tipo": "RF", "categoria": "Funcional", "descripcion": "Validar tipos y valores permitidos antes de insertar, informando errores al usuario.", "control": "SI-10"},
+    V = t.get("vocab", {})
+    pat = t["patron"]
+    fmt = {"P": P["titulo"].lower(), "P2": P["titulo"].lower(), "p": P["singular"], "H2": H["titulo"].lower(), "h": H["singular"],
+           "precio": " y precio" if V.get("precio") else "", "tipos": ", ".join(x[0] for x in V.get("tipos", [])),
+           "franja": "un bloque horario" if V.get("modo") == "bloque" else "un rango de fechas (entrada y salida)",
+           "regla": "mismo día y bloque" if V.get("modo") == "bloque" else "fechas superpuestas", "completar": str(V.get("completar", "")).lower(),
+           "estados": " → ".join(V.get("estados", [])), "nivel": str(V.get("nivel", "prioridad")).lower(),
+           "extra": (" y compararlo con el RTO del activo" if V.get("rto") else "") + (" y el monto facturado" if V.get("monto") else "")}
+    requerimientos = [{"id": f"RF-{i+1:02d}", "tipo": "RF", "categoria": "Funcional", "descripcion": txt.format(**fmt), "control": ctl}
+                      for i, (txt, ctl) in enumerate(C.RF_PATRON[pat])]
+    requerimientos.append({"id": "RF-06", "tipo": "RF", "categoria": "Funcional", "descripcion": "Ingresar con usuario y contraseña; el administrador gestiona usuarios y roles (administrador, operador, auditor).", "control": "AC-3"})
+    if V.get("vista_equipo"):
+        requerimientos.append({"id": "RF-07", "tipo": "RF", "categoria": "Funcional", "descripcion": "Mostrar al cliente, de forma animada, cómo funciona cada componente del equipo (ventiladores, flujo de aire, CPU, GPU, RAM, fuente y almacenamiento).", "control": "SI-10"})
+    requerimientos += [
         {"id": "RNF-01", "tipo": "RNF", "categoria": "Seguridad", "descripcion": f"La BD no tiene IP pública y solo acepta el puerto {m['puerto']} desde sg-web-{nn}.", "control": "SC-7"},
-        {"id": "RNF-02", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "El acceso administrativo exige llave ED25519 y código TOTP.", "control": "IA-2(1)"},
-        {"id": "RNF-03", "tipo": "RNF", "categoria": "Seguridad", "descripcion": f"La app usa el usuario app_{nn} con privilegios solo sobre ti3062_{nn} y credenciales fuera del código.", "control": "AC-6"},
+        {"id": "RNF-02", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "El acceso administrativo al SO exige llave ED25519 y código TOTP.", "control": "IA-2(1)"},
+        {"id": "RNF-03", "tipo": "RNF", "categoria": "Seguridad", "descripcion": f"La app usa app_{nn} con SELECT/INSERT/UPDATE solo sobre ti3062_{nn} (sin DELETE) y credenciales fuera del código.", "control": "AC-6"},
         {"id": "RNF-04", "tipo": "RNF", "categoria": "Disponibilidad", "descripcion": "Respaldo diario cifrado con restauración probada (RPO 24 h, RTO < 2 h).", "control": "CP-9"},
-        {"id": "RNF-05", "tipo": "RNF", "categoria": "Rendimiento", "descripcion": "El listado responde en menos de 2 s con hasta 200 registros en t3.micro.", "control": "CM-7"},
-        {"id": "RNF-06", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "Los cambios en cuentas, sudoers y SSH quedan registrados por auditd.", "control": "AU-2"},
+        {"id": "RNF-05", "tipo": "RNF", "categoria": "Rendimiento", "descripcion": "El panel en vivo se actualiza cada 5 s y cada consulta web→bd responde en menos de 200 ms en t3.micro.", "control": "CM-7"},
+        {"id": "RNF-06", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "Los cambios en cuentas, sudoers y SSH (auditd) y cada acción en la app (auditoria_app) quedan registrados.", "control": "AU-2"},
+        {"id": "RNF-07", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "Todo el tráfico va cifrado: HTTPS hacia el usuario y TLS 1.2/1.3 con certificado verificado entre web y bd.", "control": "SC-8"},
+        {"id": "RNF-08", "tipo": "RNF", "categoria": "Seguridad", "descripcion": "La sesión expira a los 15 min de inactividad y la cuenta se bloquea 15 min tras 5 intentos fallidos.", "control": "AC-7"},
     ]
     dependencias = [
-        {"id": "D1", "componente": f"{m['nombre']} en bd-{nn}", "descripcion": f"Almacena {P['tabla']} y {H['tabla']}", "impacto": "Punto único de falla: requiere respaldo y snapshot"},
+        {"id": "D1", "componente": f"{m['nombre']} en bd-{nn}", "descripcion": f"Almacena {P['tabla']}, {H['tabla']}, usuarios_app y auditoria_app", "impacto": "Punto único de falla: requiere respaldo y snapshot"},
         {"id": "D2", "componente": f"VPC-{nn} y tablas de rutas", "descripcion": "Segmentación pública/privada", "impacto": "Define qué es alcanzable desde Internet"},
+        {"id": "D6", "componente": "CA propia del proyecto (TLS web→bd)", "descripcion": f"Firma el certificado TLS de bd-{nn}", "impacto": "Si el certificado vence o cambia la IP de bd, la app deja de conectar (verificación estricta)"},
         {"id": "D3", "componente": "Security Groups y firewall de host", "descripcion": "Filtrado en dos capas", "impacto": "Deben ser coherentes o se pierde conectividad"},
-        {"id": "D4", "componente": "Sesión de AWS Academy", "descripcion": "El laboratorio se detiene al expirar la sesión", "impacto": "La IP pública cambia al reiniciar: actualizar README y pruebas"},
+        {"id": "D4", "componente": "Sesión de AWS Academy", "descripcion": "El laboratorio se detiene al expirar la sesión", "impacto": f"web-{nn} conserva su IP elástica; tras reiniciar hay que abrir el volumen LUKS de bd-{nn}"},
         {"id": "D5", "componente": "GitHub + Cloudflare Pages", "descripcion": "Publican el sistema de gestión", "impacto": "Disponibilidad del informe ligada a servicios externos"},
     ]
     limitaciones = [
@@ -183,15 +194,18 @@ def construir_datos(p, nn, nombre, github, inicio):
         {"componente": "Usuarios del SO", "acceso": f"{ua}, {ud}, {uu} vía SSH con llave", "control": "Grupos funcionales, AllowGroups, llaves ED25519", "rol": "Identifica a cada persona (IA-2)"},
         {"componente": "Roles (grupos)", "acceso": f"{g['admin']}_{nn} / {g['dev']}_{nn} / {g['audit']}_{nn}", "control": "sudoers por rol con comandos específicos", "rol": "Separación de funciones (AC-5, AC-6)"},
         {"componente": "Endpoint SSH (22)", "acceso": f"Solo desde IP del administrador a web-{nn}; bd-{nn} solo vía web-{nn}", "control": "SG + firewall de host + TOTP para admin", "rol": "Acceso remoto controlado (AC-17)"},
-        {"componente": "Endpoint web (80/443)", "acceso": "Público", "control": "Validación de entradas, CSRF, cabeceras seguras, TLS", "rol": "Protege la capa de aplicación (SI-10, SC-8)"},
-        {"componente": f"Base de datos ({m['puerto']})", "acceso": f"Solo app_{nn} desde {'10.' + nnip + '.1.10'}", "control": f"sg-bd-{nn} con origen sg-web-{nn}, GRANT mínimo", "rol": "Mínimo privilegio en datos (AC-6, SC-7)"},
+        {"componente": "Endpoint web (80/443)", "acceso": "Público; HTTP redirige a HTTPS", "control": "TLS, CSP y cabeceras seguras, validación de entradas, CSRF", "rol": "Protege la capa de aplicación (SI-10, SC-8, SC-23)"},
+        {"componente": "Usuarios de la aplicación", "acceso": "Administrador / Operador / Auditor", "control": "Contraseña ≥12 con hash, bloqueo tras 5 intentos, sesión de 15 min, permisos por rol", "rol": "Identificación y control de acceso en la app (IA-2, AC-3, AC-7, AC-12)"},
+        {"componente": "Registro de auditoría de la app", "acceso": "Solo lectura para el auditor", "control": "auditoria_app con INSERT/SELECT (sin UPDATE/DELETE para la app)", "rol": "Trazabilidad no repudiable (AU-2, AU-9)"},
+        {"componente": f"Base de datos ({m['puerto']})", "acceso": f"Solo app_{nn} desde {'10.' + nnip + '.1.10'} con TLS obligatorio", "control": f"sg-bd-{nn} con origen sg-web-{nn}, GRANT mínimo, TLS con certificado verificado", "rol": "Mínimo privilegio y cifrado en tránsito (AC-6, SC-7, SC-8)"},
         {"componente": "API/consola AWS", "acceso": "Cuenta AWS Academy del estudiante", "control": "Credenciales temporales de la sesión del laboratorio", "rol": "Limitación del entorno (L1)"},
     ]
-    oblig = ["SC-7", "AC-6", "IA-2(1)", "SC-28", "AU-2", "CP-9"]
+    oblig = ["SC-7", "AC-6", "IA-2(1)", "SC-28", "AU-2", "CP-9", "AC-12"]
     extra = r.sample([c for c in C.CONTROLES if c["codigo"] not in oblig], r.choice([1, 2]))
-    reqmap = {"SC-7": "RNF-01", "IA-2(1)": "RNF-02", "AC-6": "RNF-03", "CP-9": "RNF-04", "CP-10": "RNF-04", "CM-7": "RNF-05", "AU-2": "RNF-06", "AU-6": "RNF-06", "SC-28": "RNF-04", "IA-5": "RNF-03", "AC-17": "RNF-02", "AC-12": "RNF-02"}
+    reqmap = {"SC-7": "RNF-01", "IA-2(1)": "RNF-02", "AC-6": "RNF-03", "CP-9": "RNF-04", "CP-10": "RNF-04", "CM-7": "RNF-05", "AU-2": "RNF-06", "AU-6": "RNF-06", "SC-28": "RNF-04", "IA-5": "RNF-03", "AC-17": "RNF-02", "AC-12": "RNF-08",
+              "AC-3": "RF-06", "AC-7": "RNF-08", "AC-8": "RF-06", "IA-2": "RF-06", "IA-5(1)": "RNF-08", "SC-8": "RNF-07", "SC-23": "RNF-08", "SI-10": "RF-02", "SI-11": "RF-02", "AU-9": "RNF-06"}
     controles = []
-    for c in [x for x in C.CONTROLES if x["codigo"] in oblig] + extra:
+    for c in [x for x in C.CONTROLES if x["codigo"] in oblig] + C.CONTROLES_APP + extra:
         controles.append({"codigo": c["codigo"], "nombre": c["nombre"], "riesgo": c["riesgo"], "punto": c["punto"].replace("NN", nn),
                           "capa": c["capa"], "req": reqmap.get(c["codigo"], ""), "impacto": "", "estado": "Planificado"})
     r.shuffle(controles)
@@ -209,7 +223,9 @@ def construir_datos(p, nn, nombre, github, inicio):
         B("Red / VPC", "Tabla de rutas privada sin salida (tras retirar NAT)", "instalador/aws/02-nat-temporal.sh eliminar", "T06 / SC-7", "rt-privada sin 0.0.0.0/0"),
         B("Security Groups", f"Reglas de sg-web-{nn} y sg-bd-{nn}", "instalador/aws/03-snapshots-y-evidencias.sh evidencias", "T05 / SC-7", "Reglas de entrada de ambos SG"),
         B("Base de datos", f"{m['nombre']} escuchando en 10.{nnip}.2.10 y usuario app_{nn}", "instalador/bd/01-configurar-bd.sh", "T08 / AC-6", "GRANTs del usuario de la app"),
-        B("Aplicación", f"App {t['nombre_app']} desplegada con credenciales en /etc/ti3062/db.ini", "instalador/web/01-instalar-web.sh", "T07 / IA-5", "Formulario y listado funcionando"),
+        B("Base de datos", f"TLS obligatorio en {m['nombre']} con certificado firmado por la CA del proyecto (IP 10.{nnip}.2.10)", "instalador/bd/01-configurar-bd.sh", "T08 / SC-8", "Conexión mostrando versión TLS y cifrado"),
+        B("Aplicación", f"App {t['nombre_app']} desplegada: lógica fuera del webroot, credenciales en /etc/ti3062/db.ini, HTTPS con redirección", "instalador/web/01-instalar-web.sh", "T07 / IA-5", "Panel en vivo con canal TLS verificado"),
+        B("Aplicación", "Usuarios de la app con roles, bloqueo por intentos y sesión de 15 min; primer administrador creado por consola", "instalador/web/01-instalar-web.sh + crear-usuario.php", "T07 / AC-3", "Pantalla de usuarios y auditoría de la app"),
         B("Hardening SO", "Grupos, usuarios y directorios por área", "instalador/comun/01-hardening.sh", "T09 / AC-2", "id de usuarios y permisos de /srv/areas"),
         B("Hardening SO", "sudoers por rol", "/etc/sudoers.d/*-ti3062-*", "T09 / AC-6", "sudo -l de desarrollo y auditoría"),
         B("Hardening SO", "sshd endurecido", "/etc/ssh/sshd_config.d/10-ti3062.conf", "T09 / AC-17", "sshd -T filtrado"),
@@ -221,21 +237,36 @@ def construir_datos(p, nn, nombre, github, inicio):
         B("Respaldo", "Restauración probada en base temporal", "instalador/bd/04-probar-restauracion.sh", "T11 / CP-10", "Conteos original vs restaurada"),
         B("Disponibilidad", "Snapshots de los volúmenes de web y bd", "instalador/aws/03-snapshots-y-evidencias.sh snapshots", "T12 / CP-9", "Listado de snapshots"),
     ]
-    dbcli = f"mariadb -h 10.{nnip}.2.10 -u app_{nn} -p ti3062_{nn} -e 'SELECT COUNT(*) FROM {H['tabla']}'" if m["clave"] == "mariadb" else f"psql -h 10.{nnip}.2.10 -U app_{nn} -d ti3062_{nn} -c 'SELECT COUNT(*) FROM {H['tabla']}'"
+    ca = "/etc/ti3062/bd-ca.pem"
+    if m["clave"] == "mariadb":
+        dbcli = f"mariadb --ssl-ca={ca} --ssl-verify-server-cert -h 10.{nnip}.2.10 -u app_{nn} -p ti3062_{nn} -e \"SHOW SESSION STATUS LIKE 'Ssl_version'; SELECT COUNT(*) FROM {H['tabla']}\""
+        sincifrar = f"mariadb --skip-ssl -h 10.{nnip}.2.10 -u app_{nn} -p ti3062_{nn}"
+        borrar = f"mariadb --ssl-ca={ca} --ssl-verify-server-cert -h 10.{nnip}.2.10 -u app_{nn} -p ti3062_{nn} -e 'DELETE FROM auditoria_app'"
+    else:
+        cs = f"host=10.{nnip}.2.10 dbname=ti3062_{nn} user=app_{nn} sslmode=verify-full sslrootcert={ca}"
+        dbcli = f"psql \"{cs}\" -c 'SELECT ssl, version, cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()' -c 'SELECT COUNT(*) FROM {H['tabla']}'"
+        sincifrar = f"psql \"host=10.{nnip}.2.10 dbname=ti3062_{nn} user=app_{nn} sslmode=disable\""
+        borrar = f"psql \"{cs}\" -c 'DELETE FROM auditoria_app'"
     Pz = lambda i, o, c, e, ctl: {"id": i, "objetivo": o, "comando": c, "esperado": e, "obtenido": "", "estado": "Pendiente", "control": ctl, "imagen": ""}
     pruebas = [
-        Pz("P1", "Acceso a la app desde Internet (80/443)", "Navegador: http://<IP_PUBLICA_WEB>/ y https://<IP_PUBLICA_WEB>/ ; insertar un registro y verlo listado", "App operativa, inserta y lista datos", "SC-7"),
+        Pz("P1", "Acceso a la app desde Internet (80/443)", f"Navegador: http://<IP_PUBLICA_WEB>/ (redirige a HTTPS) ; ingresar, registrar {P['singular']} y {H['singular']} y verlos listados", "App operativa, inserta y lista datos desde la BD", "SC-7"),
         Pz("P2", f"Escaneo de puertos a bd-{nn} desde el exterior", f"nmap -Pn -p 22,{m['puerto']} 10.{nnip}.2.10  (desde el PC) ; aws ec2 describe-instances (sin PublicIpAddress)", "Sin acceso; sin IP pública", "SC-7"),
-        Pz("P3", "Conexión web → BD con el usuario de aplicación", f"En web-{nn}: {dbcli} ; repetir desde bd-{nn} con el mismo usuario (debe fallar)", f"Conexión exitosa solo desde web-{nn}", "AC-6"),
+        Pz("P3", "Conexión web → BD con el usuario de aplicación", f"En web-{nn}: {dbcli} ; repetir desde bd-{nn} con el mismo usuario (debe fallar)", f"Conexión cifrada exitosa solo desde web-{nn}", "AC-6"),
         Pz("P4", f"Salida a Internet desde bd-{nn}", "ping -c 3 8.8.8.8 ; curl -m 5 https://aws.amazon.com", "Falla", "SC-7"),
         Pz("P5", "SSH con contraseña o como root", f"ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password {ud}@<IP_PUBLICA_WEB> ; ssh root@<IP_PUBLICA_WEB>", "Rechazado", "AC-17"),
         Pz("P6", "SSH administrativo sin código TOTP", f"ssh -i ~/.ssh/{ua} {ua}@<IP_PUBLICA_WEB>  (ingresar código incorrecto)", "Rechazado", "IA-2(1)"),
         Pz("P7", "Comando no autorizado en sudoers", f"Como {ud}: sudo cat /etc/shadow ; luego como {uu}: sudo ausearch -k uso_sudo -i | tail", "Denegado y registrado en auditd", "AC-6"),
+        Pz("P9", "Cifrado en tránsito web → bd", f"En bd-{nn}: sudo tcpdump -i any -A -c 60 port {m['puerto']} | grep -i '<texto que acabas de registrar>' (registrar algo en la app mientras corre) ; en web-{nn}: {sincifrar} (debe rechazarse)", "No aparece texto legible; la conexión sin TLS es rechazada", "SC-8"),
+        Pz("P10", "Bloqueo de la cuenta por intentos fallidos", "En la app: 5 contraseñas incorrectas para un usuario ; intentar con la correcta ; revisar Auditoría (login_fallido, cuenta_bloqueada)", "Cuenta bloqueada 15 min y eventos registrados", "AC-7"),
+        Pz("P11", "Control de acceso por rol en la app", f"Ingresar como auditor e intentar registrar un {H['singular']} (o enviar el formulario con curl usando su sesión)", "Acción denegada y registrada como acceso_denegado", "AC-3"),
+        Pz("P12", "Validación de entradas (XSS / inyección SQL)", f"Registrar un {P['singular']} con <script>alert(1)</script> y con ' OR '1'='1 en el nombre ; ver el listado y el código fuente", "Se guarda como texto y se muestra escapado; la consulta no se altera", "SI-10"),
+        Pz("P13", "Registro de auditoría inmutable", f"En web-{nn}: {borrar}", "Permiso denegado para el usuario de la app", "AU-9"),
         Pz("P8", "Lectura del volumen LUKS cerrado", "sudo bash instalador/bd/02-luks-respaldos.sh cerrar ; sudo strings $(cat /etc/ti3062-luks-dispositivo) | head ; sudo cryptsetup isLuks -v $(cat /etc/ti3062-luks-dispositivo)", "Datos ilegibles", "SC-28"),
     ]
+    pruebas.sort(key=lambda x: int(x["id"][1:]))
     cia = [
-        {"dimension": "Confidencialidad", "controles": "SC-7 (subred privada + SG), AC-6 (GRANT mínimo, sudoers), IA-2(1) (TOTP), SC-28 (LUKS)", "verificacion": "P2, P3, P6, P8", "impacto": ""},
-        {"dimension": "Integridad", "controles": "AU-2 (auditd sobre archivos críticos), AC-6 (sin DROP/ALTER para la app), validación de entradas (SI-10)", "verificacion": "P7, P3", "impacto": ""},
+        {"dimension": "Confidencialidad", "controles": "SC-7 (subred privada + SG), SC-8 (HTTPS y TLS web→bd), AC-3/AC-6 (roles en la app, GRANT mínimo, sudoers), IA-2(1) (TOTP), SC-28 (LUKS)", "verificacion": "P2, P3, P6, P8, P9, P11", "impacto": ""},
+        {"dimension": "Integridad", "controles": "SI-10 (validación y consultas preparadas), SC-23 (CSRF y sesión), reglas de negocio en transacciones, AU-2/AU-9 (auditd y auditoria_app inmutable)", "verificacion": "P7, P12, P13", "impacto": ""},
         {"dimension": "Disponibilidad", "controles": "CP-9 (respaldo diario), CP-10 (restauración probada), snapshots EBS, AZ " + zona, "verificacion": "P1, restauración, snapshots", "impacto": ""},
     ]
     riesgos = [dict(x, id=f"R{i+1}") for i, x in enumerate(r.sample(C.RIESGOS_RESIDUALES, r.choice([3, 4])))]
@@ -252,6 +283,42 @@ def construir_datos(p, nn, nombre, github, inicio):
         "version": 1,
         "meta": {"estudiante": nombre, "nn": nn, "carrera": "Ingeniería en Informática", "sede": "La Serena", "docente": "Daniel Ruz Moreno",
                  "urlSistema": url_sis, "urlRepo": url_repo, "github": github},
+        "personal": [
+            {"id": "P1", "nombre": nombre, "cargo": "Jefe de proyecto y administrador de infraestructura", "rol": "Administración", "correo": "",
+             "responsabilidades": f"VPC-{nn}, Security Groups, instancias, hardening, MFA, cifrado y respaldos"},
+            {"id": "P2", "nombre": nombre, "cargo": "Desarrollador de la aplicación", "rol": "Desarrollo", "correo": "",
+             "responsabilidades": f"App {t['nombre_app']}, base de datos {m['nombre']}, TLS web→bd y despliegue en web-{nn}"},
+            {"id": "P3", "nombre": nombre, "cargo": "Auditor de seguridad", "rol": "Auditoría", "correo": "",
+             "responsabilidades": "Requerimientos, controles NIST, auditd y auditoría de la app, pruebas P1–P13 y evaluación final"},
+        ],
+        "informe": {
+            "titulo": "Proyecto Integrador de Seguridad en Infraestructura Cloud y Redes",
+            "subtitulo": f"{t['nombre_app']}: {t['titulo']}",
+            "asignatura": "TI3062 · Gestión de Seguridad de la Información",
+            "mostrarEquipo": "Sí",
+            "estado": "Estado al generar: avance {avance}% · {controlesImpl}/{controlesTot} controles implementados · {aprobadas}/{pruebasTot} pruebas aprobadas · {riesgos} riesgos residuales.",
+            "incluirIntro": "Sí", "introTitulo": "Introducción",
+            "proposito": f"Diseñar, implementar y validar en AWS una solución cloud segura para {t['titulo'].lower()}, que mejore la disponibilidad de acceso aplicando controles NIST SP 800-53 Rev. 5 en las capas de identidad, red, aplicación y proveedor.",
+            "alcance": f"Incluye la VPC-{nn} con subred pública y privada, las instancias web-{nn} y bd-{nn}, la aplicación {t['nombre_app']} con usuarios por rol y conexión cifrada a {m['nombre']}, el endurecimiento del sistema operativo (MFA, sudoers, auditd, firewall), el cifrado y respaldo de la base de datos, y la validación con las pruebas P1 a P13. No incluye alta disponibilidad multi-AZ, que se propone como mejora.",
+            "escenario": t["contexto"],
+            "sec1": "1. Planificación y gestión", "intro1": "",
+            "sec2": "2. Problemática, requerimientos, dependencias y limitaciones", "intro2": "",
+            "sec3": "3. Alternativas cloud y selección", "intro3": "",
+            "sec4": "4. Controles NIST SP 800-53 Rev. 5", "intro4": "",
+            "sec5": "5. Implementación", "intro5": "",
+            "sec6": "6. Validación", "intro6": "",
+            "sec7": "7. Evaluación final", "intro7": "",
+            "incluirRef": "Sí", "refTitulo": "Referencias",
+            "referencias": [
+                "National Institute of Standards and Technology. (2020). Security and Privacy Controls for Information Systems and Organizations (SP 800-53 Rev. 5). https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+                "Ley N° 21.663 Marco de Ciberseguridad. (2024). Biblioteca del Congreso Nacional de Chile. https://www.bcn.cl/leychile/navegar?idNorma=1202434",
+                "Ley N° 21.719 que regula la protección y el tratamiento de los datos personales. (2024). Biblioteca del Congreso Nacional de Chile. https://www.bcn.cl/leychile",
+                "Gobierno de Chile. (2017). Política Nacional de Ciberseguridad 2017–2022. https://www.interior.gob.cl/media/2017/04/politica-nacional-de-ciberseguridad.pdf",
+                "CSIRT de Gobierno de Chile. (2023). Guías y recomendaciones de seguridad para infraestructura y servicios tecnológicos. https://www.csirt.gob.cl",
+                "Amazon Web Services. (2024). AWS Well-Architected Framework: Security Pillar. https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html",
+            ],
+            "pie": "TI3062 · {estudiante} · NN {nn} · {sistema}",
+        },
         "hitos": hitos, "tareas": tareas,
         "problema": {"titulo": f"{t['nombre_app']}: {t['titulo']}", "contexto": t["contexto"], "actores": t["actores"], "procesos": t["procesos"],
                      "necesidades": ["Disponibilidad del servicio desde Internet", "Protección de datos personales", "Respaldo y recuperación ante fallas", "Trazabilidad de accesos y cambios"],
@@ -260,42 +327,89 @@ def construir_datos(p, nn, nombre, github, inicio):
         "proveedores": proveedores, "seleccion": seleccion, "componentes": componentes, "controles": controles,
         "infra": {"vpc": f"VPC-{nn}", "cidr": f"10.{nnip}.0.0/16", "publica": f"10.{nnip}.1.0/24", "privada": f"10.{nnip}.2.0/24",
                   "web": f"web-{nn} (10.{nnip}.1.10)", "bd": f"bd-{nn} (10.{nnip}.2.10)", "motor": f"{m['nombre']} :{m['puerto']}", "appUrl": "http://<IP_PUBLICA_WEB>/"},
-        "sg": sg, "bitacora": bitacora, "pruebas": pruebas, "hallazgos": [], "cia": cia, "riesgos": riesgos, "gobierno": gobierno, "mejoras": mejoras,
+        "sg": sg, "bitacora": bitacora, "pruebas": pruebas, "hallazgos": [
+            {"id": "HZ-01", "tipo": "Riesgo", "descripcion": "AWS CloudTrail no está disponible en AWS Academy (AccessDeniedException al abrir el servicio): no hay registro centralizado de llamadas a la API, cambios de red/SG ni accesos a la consola.",
+             "req": "RNF-06", "control": "AU-2 / AU-6", "impacto": "No se pueden auditar cambios perimetrales hechos desde la consola o CloudShell.",
+             "accion": "Control compensatorio en el SO: auditd (sudo, passwd, sudoers, sshd_config), auth.log/journald y revisión de sesiones (last, lastb, who, lastlog). Mejora: habilitar CloudTrail en una cuenta AWS propia."}], "cia": cia, "riesgos": riesgos, "gobierno": gobierno, "mejoras": mejoras,
         "cierre": {"conclusion": "", "aprendizajes": ""},
     }
 
 
 def esquema_sql(t, motor):
-    def tipo(tp):
-        if tp == "date": return "DATE"
-        if tp == "number": return "DECIMAL(12,2)"
-        if tp == "textarea": return "VARCHAR(500)"
-        return "VARCHAR(150)"
-    P, H = t["padre"], t["hijo"]
-    if motor["clave"] == "mariadb":
-        idc, eng = "id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY", " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-        fkt = "INT UNSIGNED"
-    else:
-        idc, eng, fkt = "id SERIAL PRIMARY KEY", "", "INTEGER"
+    """4 tablas: usuarios_app → (padre ← hijo) y auditoria_app. Columnas de negocio según el patrón."""
+    mdb = motor["clave"] == "mariadb"
+    tipo = lambda tp: {"date": "DATE", "number": "DECIMAL(12,2)", "textarea": "VARCHAR(500)"}.get(tp, "VARCHAR(150)")
     nul = lambda tp: "" if tp == "textarea" else " NOT NULL"
-    cols_p = ",\n  ".join(f"{k} {tipo(tp)}{nul(tp)}" for k, tp, _ in P["campos"])
-    cols_h = ",\n  ".join(f"{k} {tipo(tp)}{nul(tp)}" for k, tp, _ in H["campos"])
-    return f"""-- Esquema {t['nombre_app']} ({motor['nombre']}) — 2 tablas relacionadas
+    idc = "id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY" if mdb else "id SERIAL PRIMARY KEY"
+    idg = "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY" if mdb else "id BIGSERIAL PRIMARY KEY"
+    fkt = "INT UNSIGNED" if mdb else "INTEGER"
+    eng = " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci" if mdb else ""
+    ts = "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    tsn = "TIMESTAMP NULL DEFAULT NULL"
+    P, H, V, pat = t["padre"], t["hijo"], t.get("vocab", {}), t["patron"]
+    est_p = {"inventario": ["stock INT NOT NULL DEFAULT 0", "stock_minimo INT NOT NULL DEFAULT 0", "precio DECIMAL(12,2) NOT NULL DEFAULT 0", "CONSTRAINT ck_%s_stock CHECK (stock >= 0)" % P["tabla"]],
+             "prestamos": ["estado_item VARCHAR(20) NOT NULL DEFAULT 'Disponible'"],
+             "membresias": ["valor DECIMAL(12,2) NOT NULL DEFAULT 0", "duracion_dias INT NOT NULL DEFAULT 30"]}.get(pat, [])
+    est_h = {"inventario": ["tipo VARCHAR(40) NOT NULL", "cantidad INT NOT NULL", "monto DECIMAL(14,2) NOT NULL DEFAULT 0", "CONSTRAINT ck_%s_cant CHECK (cantidad > 0)" % H["tabla"]],
+             "reservas": ["fecha DATE NOT NULL", ("bloque VARCHAR(20) NOT NULL" if V.get("modo") == "bloque" else "fecha_fin DATE NOT NULL"), "estado VARCHAR(20) NOT NULL DEFAULT 'Confirmada'"],
+             "prestamos": ["fecha_prestamo DATE NOT NULL", "fecha_compromiso DATE NOT NULL", "fecha_devolucion DATE NULL", "estado VARCHAR(20) NOT NULL DEFAULT 'Activo'"],
+             "ordenes": ["nivel VARCHAR(30) NOT NULL", "estado VARCHAR(40) NOT NULL", "monto DECIMAL(14,2) NULL", f"actualizado_en {tsn}", f"cerrado_en {tsn}"],
+             "membresias": ["fecha_inicio DATE NOT NULL", "fecha_fin DATE NOT NULL", "estado VARCHAR(20) NOT NULL DEFAULT 'Activa'"]}[pat]
+    cols_p = [f"{k} {tipo(tp)}{nul(tp)}" for k, tp, _ in P["campos"]] + est_p
+    cols_h = [f"{k} {tipo(tp)}{nul(tp)}" for k, tp, _ in H["campos"]] + est_h
+    j = ",\n  ".join
+    idx_extra = {"reservas": f"CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_agenda ON {H['tabla']} ({H['fk']}, fecha, estado);",
+                 "prestamos": f"CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_estado ON {H['tabla']} (estado, fecha_compromiso);",
+                 "ordenes": f"CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_estado ON {H['tabla']} (estado, nivel);",
+                 "membresias": f"CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_vigencia ON {H['tabla']} (estado, fecha_fin);",
+                 "inventario": f"CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_tipo ON {H['tabla']} (tipo, creado_en);"}[pat]
+    return f"""-- Esquema {t['nombre_app']} ({motor['nombre']}) — patrón {pat}
+-- 4 tablas relacionadas: usuarios_app → {P['tabla']} ← {H['tabla']} (y {H['tabla']} → usuarios_app), más auditoria_app.
+CREATE TABLE IF NOT EXISTS usuarios_app (
+  {idc},
+  usuario VARCHAR(40) NOT NULL UNIQUE,
+  nombre VARCHAR(100) NOT NULL,
+  hash VARCHAR(255) NOT NULL,
+  rol VARCHAR(20) NOT NULL,
+  activo SMALLINT NOT NULL DEFAULT 1,
+  intentos INT NOT NULL DEFAULT 0,
+  bloqueado_hasta {tsn},
+  ultimo_acceso {tsn},
+  cambio_clave {tsn},
+  creado_en {ts},
+  CONSTRAINT ck_usuarios_rol CHECK (rol IN ('admin', 'operador', 'auditor'))
+){eng};
+
 CREATE TABLE IF NOT EXISTS {P['tabla']} (
   {idc},
-  {cols_p},
-  creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  {j(cols_p)},
+  activo SMALLINT NOT NULL DEFAULT 1,
+  creado_en {ts}
 ){eng};
 
 CREATE TABLE IF NOT EXISTS {H['tabla']} (
   {idc},
   {H['fk']} {fkt} NOT NULL,
-  {cols_h},
-  creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_{H['tabla']}_{P['tabla']} FOREIGN KEY ({H['fk']}) REFERENCES {P['tabla']}(id) ON DELETE RESTRICT
+  {j(cols_h)},
+  usuario_id {fkt} NULL,
+  creado_en {ts},
+  CONSTRAINT fk_{H['tabla']}_{P['tabla']} FOREIGN KEY ({H['fk']}) REFERENCES {P['tabla']}(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_{H['tabla']}_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios_app(id) ON DELETE RESTRICT
+){eng};
+
+CREATE TABLE IF NOT EXISTS auditoria_app (
+  {idg},
+  fecha {ts},
+  usuario VARCHAR(40) NOT NULL,
+  accion VARCHAR(40) NOT NULL,
+  entidad VARCHAR(40) NOT NULL,
+  detalle VARCHAR(500) NOT NULL DEFAULT '',
+  ip VARCHAR(45) NOT NULL DEFAULT ''
 ){eng};
 
 CREATE INDEX IF NOT EXISTS idx_{H['tabla']}_{H['fk']} ON {H['tabla']} ({H['fk']});
+{idx_extra}
+CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria_app (fecha);
 """
 
 
@@ -348,10 +462,10 @@ def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inici
     (destino / "data").mkdir(exist_ok=True)
     (destino / "data" / f"proyecto-{nn}.json").write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    tema_php = {"nombre_app": t["nombre_app"], "titulo": t["titulo"],
+    tema_php = {"nombre_app": t["nombre_app"], "titulo": t["titulo"], "patron": t["patron"], "vocab": t.get("vocab", {}),
                 "padre": {k: t["padre"][k] for k in ("tabla", "titulo", "singular")} | {"campos": [list(c) for c in t["padre"]["campos"]]},
                 "hijo": {k: t["hijo"][k] for k in ("tabla", "titulo", "singular", "fk")} | {"campos": [list(c) for c in t["hijo"]["campos"]]}}
-    (destino / "app-caso" / "config_tema.php").write_text(
+    (destino / "app-caso" / "privado" / "config_tema.php").write_text(
         "<?php\n// Estructura (no datos) de la app del caso. Generado para NN " + nn + "\n$TEMA = " + php_valor(tema_php) + ";\n", encoding="utf-8", newline="\n")
     (destino / "instalador" / "bd" / "esquema.sql").write_text(esquema_sql(t, m), encoding="utf-8", newline="\n")
     (destino / "instalador" / "llaves").mkdir(exist_ok=True)
