@@ -118,8 +118,16 @@ function iniciar_sesion(bool $actividad = true): void {
             auditar('sesion_expirada', 'sesion', 'Inactividad o duración máxima');
             cerrar_sesion();
             $_SESSION['aviso'] = 'Tu sesión expiró. Ingresa nuevamente.';
-        } elseif ($actividad) {
-            $_SESSION['ultimo'] = $t;
+        } else {
+            // AC-2: en cada petición se confirma que la cuenta sigue activa y se toma su rol vigente
+            $u = fila('SELECT usuario, nombre, rol, activo FROM usuarios_app WHERE id = ?', [$_SESSION['uid']]);
+            if (!$u || !(int)$u['activo'] || $u['usuario'] !== $_SESSION['usuario']) {
+                cerrar_sesion();
+                $_SESSION['aviso'] = 'Tu cuenta no está disponible. Contacta al administrador.';
+            } else {
+                $_SESSION['rol'] = $u['rol']; $_SESSION['nombre'] = $u['nombre'];
+                if ($actividad) $_SESSION['ultimo'] = $t;
+            }
         }
     }
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));

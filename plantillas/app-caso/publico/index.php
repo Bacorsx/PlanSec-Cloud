@@ -348,7 +348,7 @@ case 'equipo':
 /* ================================================= REPORTES */
 case 'reportes':
     echo '<div class="mosaico">';
-    foreach (p_reportes() as $t => $html) { tarjeta_ini($t); echo $html; tarjeta_fin(); }
+    foreach (p_reportes() as $t => $html) { tarjeta_ini($t, '', str_contains($html, '<table') && substr_count($html, '<th>') > 3 ? 'ancho' : ''); echo $html; tarjeta_fin(); }
     echo '</div>';
     break;
 

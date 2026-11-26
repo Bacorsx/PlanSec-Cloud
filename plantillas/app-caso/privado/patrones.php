@@ -426,7 +426,7 @@ function p_reportes(): array {   // [titulo => html]
                     $caida = 0; $peor = 0;
                     foreach ($inc as $x) { $d = (strtotime(($x['cerrado_en'] ?: gmdate('Y-m-d H:i:s')) . ' UTC') - strtotime($x['creado_en'] . ' UTC')) / 3600; $caida += $d; $peor = max($peor, $d); }
                     $disp = max(0, 100 - 100 * $caida / 720);
-                    $rows[] = [h($a['e']), num(count($inc)), round($peor, 1) . ' h / ' . num($a['rto']) . ' h', insignia(number_format($disp, 2, ',', '.') . ' %', $disp >= 99.5 ? 'bien' : ($disp >= 98 ? 'alerta' : 'mal')),
+                    $rows[] = [h($a['e']), num(count($inc)), number_format($peor, 1, ',', '.') . ' h / ' . num($a['rto']) . ' h', insignia(number_format($disp, 2, ',', '.') . ' %', $disp >= 99.5 ? 'bien' : ($disp >= 98 ? 'alerta' : 'mal')),
                                $peor > (float)$a['rto'] ? insignia('Excede RTO', 'mal') : insignia('Cumple', 'bien')];
                 }
                 $r['Continuidad por activo (30 días)'] = tabla_html(['Activo', 'Incidentes', 'Peor recuperación / RTO', 'Disponibilidad', 'RTO'], $rows);
