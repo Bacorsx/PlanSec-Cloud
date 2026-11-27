@@ -240,6 +240,9 @@ generar.py            Generador (CLI)
 catalogo.py           Paletas, tipografías, grupos, motores, zonas y proveedores (importa controles, riesgos y mejoras del diccionario)
 temas.py              Temáticas, patrones de negocio y requerimientos por patrón
 diccionario.py        Controles NIST, textos base, hallazgos, glosario y contenido mínimo del informe
+herramientas/         generar_grafo.py: mapa del proyecto (bóveda Obsidian en grafo/)
+pruebas/              Validación en WSL Ubuntu 24.04 (ver pruebas/LEEME.md)
+grafo/                Mapa del proyecto para Obsidian: abre grafo/ como bóveda; empieza por «00 Inicio» y notas/Continuar aquí
 plantillas/
   sistema/            index.html, app.js (módulos + PDF), styles.css
   app-caso/publico/   index.php, api.php (en vivo), app.js, estilo.css  → webroot
@@ -253,6 +256,10 @@ plantillas/
   README.md           README del repositorio del estudiante
   PASO-A-PASO.md      Guía personalizada
 ```
+
+## Mapa del proyecto (grafo)
+
+`grafo/` es una bóveda de Obsidian generada desde el código con `python herramientas/generar_grafo.py`: una nota por archivo (qué hace, qué usa, quién lo usa, conceptos y controles NIST), los conceptos del proyecto, los 46 controles NIST y mapas de flujo, arquitectura, capas, instalación, pruebas y decisiones. Abre la vista de grafo (Ctrl+G): los colores son las capas. Para retomar el trabajo en otra sesión empieza por `grafo/notas/Continuar aquí.md`; `grafo/notas/` no se regenera.
 
 ## Seguridad y uso responsable
 

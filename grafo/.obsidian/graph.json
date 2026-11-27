@@ -1,0 +1,78 @@
+{
+ "colorGroups": [
+  {
+   "query": "tag:#enfoque",
+   "color": {
+    "a": 1,
+    "rgb": 1483704
+   }
+  },
+  {
+   "query": "tag:#informe",
+   "color": {
+    "a": 1,
+    "rgb": 14715452
+   }
+  },
+  {
+   "query": "tag:#instalador",
+   "color": {
+    "a": 1,
+    "rgb": 3120727
+   }
+  },
+  {
+   "query": "tag:#pruebas",
+   "color": {
+    "a": 1,
+    "rgb": 10132122
+   }
+  },
+  {
+   "query": "tag:#herramientas",
+   "color": {
+    "a": 1,
+    "rgb": 8026746
+   }
+  },
+  {
+   "query": "tag:#documentos",
+   "color": {
+    "a": 1,
+    "rgb": 11566296
+   }
+  },
+  {
+   "query": "tag:#generador",
+   "color": {
+    "a": 1,
+    "rgb": 5992161
+   }
+  },
+  {
+   "query": "tag:#nist",
+   "color": {
+    "a": 1,
+    "rgb": 12597547
+   }
+  },
+  {
+   "query": "tag:#concepto",
+   "color": {
+    "a": 1,
+    "rgb": 13938950
+   }
+  },
+  {
+   "query": "tag:#mapa",
+   "color": {
+    "a": 1,
+    "rgb": 16777215
+   }
+  }
+ ],
+ "showTags": false,
+ "showAttachments": false,
+ "hideUnresolved": true,
+ "showOrphans": false
+}
