@@ -41,6 +41,8 @@ h1 { font-size: 1.25rem; margin: 0 0 14px; font-weight: 650; }
 .menu { display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; border-right: 1px solid var(--borde); background: var(--sup); }
 .menu a { padding: 9px 12px; border-radius: 8px; color: var(--tx2); text-decoration: none; font-weight: 550; }
 .menu a:hover { background: var(--sup2); color: var(--tx); }
+.menu .separador { display: block; margin: 14px 12px 4px; padding-top: 10px; border-top: 1px solid var(--borde); }
+[data-variante="b"] .menu .separador { margin: 0 6px; padding: 9px 0 0 10px; border-top: 0; border-left: 1px solid var(--borde); }
 .menu a[aria-current] { background: color-mix(in srgb, var(--acento) 16%, transparent); color: var(--tx); box-shadow: inset 3px 0 0 var(--acento); }
 main { padding: 18px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 /* variantes de distribución por estudiante */

@@ -18,6 +18,17 @@ Pensado para la Evaluación 4 de TI3062 *Gestión de Seguridad de la Informació
 
 ---
 
+## Una aplicación, dos capas
+
+Cada proyecto generado es **una sola aplicación en un solo repositorio**, con dos capas separadas, tal como exige la pauta (el sistema de gestión en Cloudflare Pages y la app del caso en web-NN, distinta del sistema):
+
+| Capa | Qué es | Dónde corre |
+|---|---|---|
+| **Enfoque** (`app-caso/`) | La aplicación del negocio: usuarios por rol, reglas, reportes, auditoría y panel en vivo | web-NN en AWS, con la base en bd-NN |
+| **Informe** (raíz + `data/`) | Gestión, planificación, diccionario y generación del PDF | `ti3062-NN.pages.dev` y `/gestion/` en web-NN |
+
+Comparten nombre, colores y navegación, pero no comparten código, sesión ni base de datos. La evidencia medida en la app (TLS, eventos de auditoría, resultados de P1 y P9–P13) pasa al informe con **Exportar evidencia** → **Importar evidencia de la app**. Lo precargado queda marcado como **borrador** hasta que el estudiante lo revisa contra su evidencia real.
+
 ## Cómo funciona
 
 ```mermaid
@@ -247,6 +258,9 @@ plantillas/
 
 - Nunca subas llaves privadas (`.pem`), secretos TOTP, códigos QR, códigos de emergencia ni `/etc/ti3062/db.ini`; el `.gitignore` generado excluye los más comunes.
 - Las credenciales de la app viven fuera del código; el usuario de BD no tiene `ALL`, `DELETE` ni acceso desde `'%'`, y solo se conecta por TLS verificado.
+- Antes de cada push, `.githooks/pre-push` ejecuta `instalador/verificar-secretos.sh`, que bloquea llaves privadas, secretos TOTP, `db.ini`, claves de AWS y contraseñas en el código.
+- Antes de instalar, `instalador/revisar-instalador.sh` verifica `MANIFIESTO.sha256` (scripts sin cambios no esperados), la sintaxis, los permisos y resume las reglas de red, firewall, sudoers y base de datos que se aplicarán.
+- Tras reiniciar el laboratorio, `bd/05-tras-reinicio.sh` reabre el volumen LUKS, verifica el respaldo y deja un resumen para la bitácora; bd-NN muestra un aviso al iniciar sesión mientras el volumen siga cerrado.
 - Los datos precargados son un **borrador**: resultados, capturas y hallazgos deben salir de la infraestructura real de cada estudiante.
 
 ## Créditos

@@ -70,6 +70,7 @@ const MODULOS = [
       { k: 'fecha', l: 'Fecha', t: 'date' }, { k: 'area', l: 'Área', t: AREAS }, { k: 'configuracion', l: 'Configuración', t: 'area' }, { k: 'comando', l: 'Comando / archivo', t: 'area' },
       { k: 'responsable', l: 'Responsable', t: 'persona' }, { k: 'ref', l: 'Tarea / control' }, { k: 'evidencia', l: 'Título evidencia' }, { k: 'descripcion', l: 'Descripción / justificación', t: 'area' }, { k: 'imagen', l: 'Captura', t: 'img' }] }] },
   { id: 'validacion', titulo: 'Validación y cierre', bloques: [
+    { tipo: 'evidencia' },
     { tipo: 'arr', ruta: 'pruebas', titulo: 'Pruebas (P1–P4 obligatorias)', cols: [
       { k: 'id', l: 'ID' }, { k: 'objetivo', l: 'Objetivo', t: 'area' }, { k: 'comando', l: 'Comando', t: 'area' }, { k: 'esperado', l: 'Esperado', t: 'area' },
       { k: 'obtenido', l: 'Obtenido', t: 'area' }, { k: 'estado', l: 'Resultado', t: EST_PRUEBA }, { k: 'control', l: 'Control NIST' }, { k: 'imagen', l: 'Captura', t: 'img' }] },
@@ -153,6 +154,48 @@ function aviso(t) {
 }
 const norm = (x) => String(x ?? '').trim().toLowerCase();
 
+/* ---------------- Capa de informe: contenido precargado (borrador) vs. revisado ---------------- */
+function esBorradorObj(ruta, k) { return ((datos._base_obj || {})[ruta] || []).includes(k); }
+function revisarObj(ruta, k) { const b = (datos._base_obj || {})[ruta]; if (b) datos._base_obj[ruta] = b.filter((x) => x !== k); }
+function borradores() {   // { modulo: cantidad } de filas y campos precargados sin revisar
+  const r = {};
+  MODULOS.forEach((m) => (m.bloques || []).forEach((b) => {
+    let n = 0;
+    if (b.tipo === 'arr') n = (datos[b.ruta] || []).filter((f) => f && f._base).length;
+    if (b.tipo === 'obj') n = b.campos.filter((c) => esBorradorObj(b.ruta, c.k)).length;
+    if (n) r[m.id] = (r[m.id] || 0) + n;
+  }));
+  return r;
+}
+function pruebasSinEvidencia() { return (datos.pruebas || []).filter((p) => p.estado === 'Aprobada' && (!String(p.obtenido || '').trim() || !p.imagen)); }
+
+/* ---------------- Capa de enfoque → capa de informe: paquete de evidencia de la app ---------------- */
+function importarEvidencia(file) {
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    let ev;
+    try { ev = JSON.parse(fr.result); } catch (e) { alert('El archivo no es un JSON válido.'); return; }
+    if (ev.tipo !== 'evidencia-ti3062') { alert('El archivo no es un paquete de evidencia exportado desde la aplicación del caso.'); return; }
+    if (String(ev.nn) !== String((datos.meta || {}).nn || CFG.nn) && !confirm(`La evidencia es del NN ${ev.nn} y este proyecto es el NN ${(datos.meta || {}).nn || CFG.nn}. ¿Importar igual?`)) return;
+    const medidas = (ev.pruebas || []).filter((p) => p.medido);
+    const aplicar = medidas.filter((p) => { const t = (datos.pruebas || []).find((x) => x.id === p.id); return t && !String(t.obtenido || '').trim(); });
+    const prev = [`Evidencia de ${ev.app} (${ev.servidor}, ${ev.generado}, exportada por ${ev.exportado_por})`,
+      `Canal web → bd: ${ev.canal_bd && ev.canal_bd.tls ? ev.canal_bd.tls + ' · certificado verificado: ' + (ev.canal_bd.certificado_verificado ? 'sí' : 'no') : 'SIN TLS'}`,
+      `Pruebas con resultado medido: ${medidas.map((p) => p.id).join(', ') || 'ninguna'}`,
+      `Se completará «Obtenido» (solo si está vacío) en: ${aplicar.map((p) => p.id).join(', ') || 'ninguna'}`,
+      'Se agregará un registro a la bitácora con el resumen.', '', '¿Importar?'].join('\n');
+    if (!confirm(prev)) return;
+    aplicar.forEach((p) => { const t = datos.pruebas.find((x) => x.id === p.id); t.obtenido = p.obtenido; delete t._base; });
+    const aud = Object.entries(ev.auditoria || {}).map(([a, v]) => `${a}: ${v.n}`).join(', ');
+    asegurar('bitacora', []).push({ fecha: hoy(), area: 'Aplicación', configuracion: `Evidencia medida en la aplicación ${ev.app} (${ev.servidor})`,
+      comando: 'App del caso → Exportar evidencia (rol ' + ev.exportado_por + ')', responsable: '', ref: 'P1, P9–P13 / SC-8, AC-3, AC-7, AU-9',
+      evidencia: `Paquete de evidencia ${ev.generado}`, descripcion: `TLS ${ev.canal_bd ? ev.canal_bd.tls + ' ' + ev.canal_bd.cifrado : '-'}; tablas ${Object.entries(ev.tablas || {}).map(([t, n]) => t + '=' + n).join(', ')}; eventos de auditoría: ${aud || 'sin eventos'}.`, imagen: '' });
+    guardar(); render(); aviso(`Evidencia importada: ${aplicar.length} prueba(s) completada(s)`);
+  };
+  fr.readAsText(file);
+}
+
 async function cargar() {
   let local = null;
   try { local = JSON.parse(localStorage.getItem(CFG.storageKey) || 'null'); } catch (e) { local = null; }
@@ -200,6 +243,7 @@ function chequeoPauta(k) {
     const c = dic.requisitos.map((q) => ({ cond: evaluarRequisito(q), txt: q.txt, modulo: q.modulo }));
     const nombres = (datos.personal || []).map((p) => p.nombre).filter(Boolean);
     c.push({ cond: nombres.length >= 1 && (datos.tareas || []).every((t) => nombres.includes(t.responsable)), txt: 'Responsables de tareas asignados desde el equipo', modulo: 'planificacion' });
+    c.push({ cond: pruebasSinEvidencia().length === 0, txt: 'Pruebas «Aprobada» con resultado obtenido y captura', modulo: 'validacion' });
     return c;
   }
   const c = [];
@@ -268,6 +312,9 @@ function renderResumen() {
     <div class="kpi"><b>${k.evidencias}/${k.bitacora}</b><span>Registros de bitácora con captura</span></div>
   </div>
   <div class="graficos" style="margin-top:16px">${graf}</div>
+  ${(() => { const b = borradores(), tot = Object.values(b).reduce((a, n) => a + n, 0); return tot ? `<div class="tarjeta"><h2>Contenido precargado sin revisar (${tot})</h2>
+    <p class="ayuda">Son borradores generados para tu plantilla. Ajústalos a tu infraestructura y evidencia real (auditd, tcpdump, nmap, respaldos) antes de entregar.</p>
+    <ul class="chequeo">${Object.entries(b).map(([m, n]) => `<li>⬜ ${esc((MODULOS.find((x) => x.id === m) || {}).titulo || m)}: ${n} <button class="btn mini" data-mod="${esc(m)}">Revisar</button></li>`).join('')}</ul></div>` : ''; })()}
   <div class="tarjeta"><h2>Cumplimiento mínimo de la pauta${dic ? ' (contenido mínimo del informe)' : ''}</h2><ul class="chequeo">${chk.map((c) => `<li>${c.cond ? '✅' : '⬜'} ${esc(c.txt)}${!c.cond && c.modulo ? ` <button class="btn mini" data-mod="${esc(c.modulo)}">Completar</button>` : ''}</li>`).join('')}</ul></div>`;
 }
 
@@ -383,7 +430,7 @@ function renderBloque(b) {
     const filas = asegurar(b.ruta, []);
     return `<div class="tarjeta"><h2>${esc(b.titulo)} <small>(${filas.length})</small></h2>${b.ayuda ? `<p class="ayuda">${esc(b.ayuda)}</p>` : ''}
       <div class="tabla-wrap"><table><thead><tr>${b.cols.map((c) => `<th>${esc(c.l)}</th>`).join('')}<th></th></tr></thead><tbody>
-      ${filas.map((f, i) => `<tr>${b.cols.map((c) => `<td>${inputCelda(c, f[c.k], b.ruta, i)}</td>`).join('')}<td><button class="btn mini peligro" data-borrar="${b.ruta}" data-i="${i}" title="Eliminar fila">✕</button></td></tr>`).join('')}
+      ${filas.map((f, i) => `<tr${f._base ? ' class="borrador" title="Precargado: revísalo y ajústalo a tu evidencia real"' : ''}>${b.cols.map((c) => `<td>${inputCelda(c, f[c.k], b.ruta, i)}</td>`).join('')}<td>${f._base ? `<button class="btn mini" data-revisar="${b.ruta}" data-i="${i}" title="Marcar como revisado">✓ Revisado</button>` : ''}<button class="btn mini peligro" data-borrar="${b.ruta}" data-i="${i}" title="Eliminar fila">✕</button></td></tr>`).join('')}
       </tbody></table></div><div class="fila-botones"><button class="btn" data-agregar="${b.ruta}">+ Agregar fila</button></div>${panelSugerencias(b.ruta)}</div>`;
   }
   if (b.tipo === 'obj') {
@@ -393,10 +440,14 @@ function renderBloque(b) {
       const attr = `data-obj="${b.ruta}" data-k="${c.k}" ${c.t === 'lista' ? 'data-lista="1"' : ''}`;
       const ctl = Array.isArray(c.t) ? `<select ${attr}>${c.t.map((op) => `<option ${op === v ? 'selected' : ''}>${esc(op)}</option>`).join('')}</select>`
         : (c.t === 'area' || c.t === 'lista' ? `<textarea ${attr}>${esc(v)}</textarea>` : `<input ${attr} value="${esc(v)}">`);
-      return `<div class="campo"><label>${esc(c.l)} ${botonesTexto(b.ruta, c)}</label>${ctl}</div>`;
+      return `<div class="campo${esBorradorObj(b.ruta, c.k) ? ' borrador' : ''}"><label>${esc(c.l)} ${esBorradorObj(b.ruta, c.k) ? '<span class="etq borr">borrador</span>' : ''}${botonesTexto(b.ruta, c)}</label>${ctl}</div>`;
     }).join('')}</div>`;
   }
   if (b.tipo === 'diccionario') return renderDiccionario();
+  if (b.tipo === 'evidencia') return `<div class="tarjeta"><h2>Evidencia de la aplicación del caso</h2>
+      <p class="ayuda">En la app (capa de enfoque), con rol administrador o auditor, usa «Exportar evidencia» y luego impórtala aquí. Se completa «Obtenido» de P1 y P9–P13 solo si está vacío, y se agrega un registro a la bitácora. La app y este sistema no comparten sesión ni base de datos.</p>
+      <div class="fila-botones"><button class="btn primario" data-accion="evidencia">Importar evidencia de la app</button></div>
+      ${pruebasSinEvidencia().length ? `<p class="ayuda aviso-borr">⚠ ${pruebasSinEvidencia().length} prueba(s) marcadas «Aprobada» sin resultado obtenido o sin captura: ${pruebasSinEvidencia().map((p) => esc(p.id)).join(', ')}.</p>` : ''}</div>`;
   if (b.tipo === 'equipo') {   // carga de trabajo por persona, calculada desde las tareas
     const filas = (datos.personal || []).filter((p) => p.nombre).map((p) => {
       const t = (datos.tareas || []).filter((x) => x.responsable === p.nombre && (!p.rol || x.rol === p.rol));
@@ -453,6 +504,8 @@ function svgTopologia() {
 function render() {
   renderMenu();
   $('#nombre-estudiante').textContent = (datos.meta && datos.meta.estudiante) || '';
+  const url = String((datos.infra || {}).appUrl || ''), ea = $('#enlace-app');
+  if (ea) { const ok = /^https?:\/\/[^<>\s]+$/.test(url); ea.href = ok ? url : '#'; ea.classList.toggle('deshabilitado', !ok); ea.title = ok ? 'Abrir la aplicación del caso (capa de enfoque) en web-' + CFG.nn : 'Registra la URL de la app en Implementación → Topología'; }
   const m = MODULOS.find((x) => x.id === moduloActual);
   $('#contenido').innerHTML = (m.id === 'resumen' ? renderResumen() : `<h1>${esc(m.titulo)}</h1>` + m.bloques.map(renderBloque).join('')) + datalists();
 }
@@ -478,6 +531,7 @@ function comprimirImagen(file) {
 document.addEventListener('change', async (e) => {
   const el = e.target;
   if (el.id === 'input-importar') return importarArchivo(el.files[0]);
+  if (el.id === 'input-evidencia') { importarEvidencia(el.files[0]); el.value = ''; return; }
   if (el.dataset.img && el.files[0]) {
     datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = await comprimirImagen(el.files[0]);
     guardar(); render(); return;
@@ -486,22 +540,30 @@ document.addEventListener('change', async (e) => {
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.dataset.obj) {
+    if (esBorradorObj(el.dataset.obj, el.dataset.k)) { revisarObj(el.dataset.obj, el.dataset.k); const cp = el.closest('.campo'); if (cp) { cp.classList.remove('borrador'); const t = cp.querySelector('.etq.borr'); if (t) t.remove(); } }
     const o = asegurar(el.dataset.obj, {});
     o[el.dataset.k] = el.dataset.lista ? el.value.split('\n').map((s) => s.trim()).filter(Boolean) : el.value;
     guardar(); return;
   }
   if (el.id === 'dic-buscar' || el.id === 'dic-familia') { $('#dic-resultados').innerHTML = tablaDiccionario($('#dic-buscar').value, $('#dic-familia').value); return; }
-  if (el.dataset.ruta && !el.dataset.img) { datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = el.value; guardar(); autocompletar(el.dataset.ruta, +el.dataset.i, el.dataset.k, el.value); }
+  if (el.dataset.ruta && !el.dataset.img) {
+    const fila = datos[el.dataset.ruta][+el.dataset.i];
+    fila[el.dataset.k] = el.value;
+    if (fila._base) { delete fila._base; const tr = el.closest('tr'); if (tr) { tr.classList.remove('borrador'); tr.removeAttribute('title'); const bt = tr.querySelector('[data-revisar]'); if (bt) bt.remove(); } }
+    guardar(); autocompletar(el.dataset.ruta, +el.dataset.i, el.dataset.k, el.value);
+    if (el.dataset.ruta === 'pruebas' && el.dataset.k === 'estado' && el.value === 'Aprobada' && (!String(fila.obtenido || '').trim() || !fila.imagen)) aviso('⚠ Prueba aprobada: registra el resultado obtenido y adjunta la captura');
+  }
 });
 document.addEventListener('click', (e) => {
   const el = e.target.closest('button'); if (!el) return;
   if (el.dataset.mod) { moduloActual = el.dataset.mod; render(); $('#contenido').focus(); return; }
   if (el.dataset.agregar) { asegurar(el.dataset.agregar, []).push({}); guardar(); render(); return; }
   if (el.dataset.borrar) { if (confirm('¿Eliminar esta fila?')) { datos[el.dataset.borrar].splice(+el.dataset.i, 1); guardar(); render(); } return; }
-  if (el.dataset.sug) { asegurar(el.dataset.sug, []).push(JSON.parse(JSON.stringify(dic.bloques[el.dataset.sug][+el.dataset.j]))); guardar(); render(); aviso('Agregado desde el diccionario'); return; }
+  if (el.dataset.revisar) { delete datos[el.dataset.revisar][+el.dataset.i]._base; guardar(); render(); return; }
+  if (el.dataset.sug) { asegurar(el.dataset.sug, []).push(Object.assign(JSON.parse(JSON.stringify(dic.bloques[el.dataset.sug][+el.dataset.j])), { _base: true })); guardar(); render(); aviso('Agregado desde el diccionario (como borrador)'); return; }
   if (el.dataset.sugOblig) {
     const r = el.dataset.sugOblig, obl = obligatoriosDe(r), cl = dic.claves[r];
-    const nuevos = faltantes(r).filter(([it]) => obl.has(it[cl])).map(([it]) => JSON.parse(JSON.stringify(it)));
+    const nuevos = faltantes(r).filter(([it]) => obl.has(it[cl])).map(([it]) => Object.assign(JSON.parse(JSON.stringify(it)), { _base: true }));
     asegurar(r, []).push(...nuevos); guardar(); render(); aviso(`${nuevos.length} obligatorio(s) agregado(s)`); return;
   }
   if (el.dataset.sugtxt) {
@@ -516,7 +578,7 @@ document.addEventListener('click', (e) => {
   }
   if (el.dataset.dicAdd) {
     const f = dic.bloques.controles.find((x) => x.codigo === el.dataset.dicAdd);
-    if (f) { asegurar('controles', []).push(JSON.parse(JSON.stringify(f))); guardar(); $('#dic-resultados').innerHTML = tablaDiccionario($('#dic-buscar').value, $('#dic-familia').value); aviso(`${f.codigo} agregado a Controles NIST`); }
+    if (f) { asegurar('controles', []).push(Object.assign(JSON.parse(JSON.stringify(f)), { _base: true })); guardar(); $('#dic-resultados').innerHTML = tablaDiccionario($('#dic-buscar').value, $('#dic-familia').value); aviso(`${f.codigo} agregado a Controles NIST`); }
     return;
   }
   if (el.dataset.quitarImg) { datos[el.dataset.ruta][+el.dataset.i][el.dataset.k] = ''; guardar(); render(); return; }
@@ -524,6 +586,7 @@ document.addEventListener('click', (e) => {
   if (acc === 'pdf') generarPDF();
   if (acc === 'exportar') exportar();
   if (acc === 'importar') $('#input-importar').click();
+  if (acc === 'evidencia') $('#input-evidencia').click();
   if (acc === 'repo') restaurarRepo();
   if (acc === 'tema') { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; }
 });
@@ -553,6 +616,8 @@ function txt(s) { // jsPDF con fuentes estándar solo admite Latin-1
 
 function generarPDF() {
   if (!window.jspdf) { alert('No se pudo cargar jsPDF (revisa la conexión).'); return; }
+  const pend = Object.values(borradores()).reduce((a, n) => a + n, 0) + pruebasSinEvidencia().length;
+  if (pend && !confirm(`Quedan ${pend} elemento(s) precargados sin revisar o pruebas aprobadas sin evidencia.\nEl informe debe reflejar tu evidencia real. ¿Generar el PDF igual?`)) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210, M = 16, RGB = CFG.rgb; let y = M; let fig = 0;

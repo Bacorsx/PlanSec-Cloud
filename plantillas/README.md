@@ -16,6 +16,15 @@ El sistema reemplaza al informe tradicional. Sus módulos son: panel de resumen 
 
 La infraestructura se despliega en **AWS** (VPC-{{NN}} 10.{{NNIP}}.0.0/16) con `web-{{NN}}` en la subred pública y `bd-{{NN}}` ({{MOTOR_NOMBRE}}) en la subred privada.
 
+## Arquitectura: una aplicación, dos capas
+
+| Capa | Qué es | Dónde corre | Archivos |
+|---|---|---|---|
+| **Enfoque** | App del negocio con usuarios, reglas, reportes y auditoría | web-{{NN}} en AWS (base en bd-{{NN}}) | `app-caso/` |
+| **Informe** | Gestión, planificación y PDF | https://ti3062-{{NN}}.pages.dev y `/gestion/` en web-{{NN}} | raíz y `data/` |
+
+Las capas se enlazan entre sí y comparten identidad, pero no comparten código, sesión ni base de datos (la pauta exige que sean distintas). La evidencia medida en la app pasa al informe con **Exportar evidencia** → **Importar evidencia de la app**.
+
 ## Aplicación del caso ({{APP_CASO}})
 
 - **Funciones del negocio** (no es solo un formulario): las define el patrón de la temática (inventario, reservas, préstamos, órdenes o membresías). Incluye reglas validadas en el servidor dentro de transacciones, disponibilidad o estados, reportes y exportación CSV.
@@ -50,3 +59,7 @@ PASO-A-PASO.md                     Guía completa de la actividad
 ## Seguridad del repositorio
 
 No contiene llaves privadas, secretos TOTP, códigos QR, códigos de emergencia ni credenciales de base de datos (estas viven en `/etc/ti3062/db.ini` en web-{{NN}}).
+
+- `instalador/verificar-secretos.sh` revisa el repositorio; `.githooks/pre-push` lo ejecuta antes de cada push (`git config core.hooksPath .githooks`).
+- `instalador/revisar-instalador.sh` verifica `MANIFIESTO.sha256`, la sintaxis y los permisos de los scripts y resume las reglas que se aplicarán. Ejecútalo antes de instalar.
+- `.gitattributes` fija el fin de línea LF para que los scripts funcionen aunque se clonen en Windows.

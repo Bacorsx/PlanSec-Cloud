@@ -31,6 +31,17 @@ flowchart LR
 
 ---
 
+## Arquitectura: una aplicación, dos capas
+
+La pauta exige que el sistema de gestión (Cloudflare Pages) y la app del caso (web-{{NN}}) sean distintos. Por eso **{{APP_CASO}}** es un solo producto, en un solo repositorio, con dos capas separadas:
+
+| Capa | Qué es | Dónde corre | Archivos |
+|---|---|---|---|
+| **Enfoque** | La aplicación del negocio ({{TEMA_TITULO}}) con usuarios, reglas, reportes y auditoría | web-{{NN}} (AWS), base en bd-{{NN}} | `app-caso/` |
+| **Informe** | Gestión, planificación y generación del PDF | `ti3062-{{NN}}.pages.dev` y copia en `https://<IP_ELASTICA_WEB>/gestion/` | raíz: `index.html`, `app.js`, `styles.css`, `data/` |
+
+Comparten nombre, colores y navegación (cada una enlaza a la otra), pero **no** comparten código, sesión ni base de datos. La evidencia pasa de la capa de enfoque a la de informe con un paquete exportado: *Exportar evidencia* en la app → *Importar evidencia de la app* en el sistema.
+
 ## Fase 0 · Repositorio y publicación (día 1)
 
 1. Crea en GitHub el repositorio **público** `ti3062-{{NN}}` (vacío, sin README).
@@ -39,8 +50,12 @@ flowchart LR
    git init -b main
    git add . && git commit -m "Estructura inicial del sistema de gestión"
    git remote add origin https://github.com/{{GITHUB}}/ti3062-{{NN}}.git
+   git config core.hooksPath .githooks          # activa la revisión de secretos antes de cada push
+   chmod +x .githooks/pre-push                   # en Git Bash / Linux / macOS
+   bash instalador/verificar-secretos.sh         # debe terminar en «Sin secretos detectados»
    git push -u origin main
    ```
+   > Si el push se bloquea, el mensaje indica el archivo: quítalo con `git rm --cached <archivo>` y agrégalo a `.gitignore`. Nunca subas `.pem`, `db.ini`, la contraseña de la app, el secreto TOTP ni capturas con QR.
 3. **Cloudflare Pages**: Workers & Pages → *Create* → *Pages* → *Connect to Git* → `ti3062-{{NN}}`.
    - Project name: `ti3062-{{NN}}` (así queda `ti3062-{{NN}}.pages.dev`)
    - Framework preset: *None* · Build command: *(vacío)* · Build output directory: `/`
@@ -69,7 +84,9 @@ En el sistema, revisa y **reescribe con tus palabras** lo que viene precargado:
 2. Averigua tu IP pública (https://checkip.amazonaws.com) **desde tu PC**, no desde CloudShell.
 3. En CloudShell:
    ```bash
-   git clone https://github.com/{{GITHUB}}/ti3062-{{NN}}.git && cd ti3062-{{NN}}/instalador/aws
+   git clone https://github.com/{{GITHUB}}/ti3062-{{NN}}.git && cd ti3062-{{NN}}
+   bash instalador/revisar-instalador.sh        # integridad (manifiesto), sintaxis, permisos y reglas que se aplicarán
+   cd instalador/aws
    bash 01-crear-infra.sh <TU_IP_PUBLICA>
    bash 02-nat-temporal.sh crear        # salida temporal para instalar paquetes en bd-{{NN}}
    ```
@@ -111,6 +128,7 @@ En el sistema, revisa y **reescribe con tus palabras** lo que viene precargado:
 scp -r ti3062-{{NN}} bd-{{NN}}:~
 ssh bd-{{NN}}
 cd ~/ti3062-{{NN}}/instalador
+bash revisar-instalador.sh                  # antes de instalar en esta instancia
 sudo bash comun/00-paquetes.sh bd          # mientras existe la NAT temporal
 ```
 Luego, en **CloudShell**: `bash 02-nat-temporal.sh eliminar` → captura la tabla de rutas sin `0.0.0.0/0`.
@@ -127,6 +145,7 @@ sudo cat /root/.ti3062-ca-bd.b64            # certificado de la CA en una línea
 ```bash
 ssh web-{{NN}}
 git clone https://github.com/{{GITHUB}}/ti3062-{{NN}}.git && cd ti3062-{{NN}}/instalador
+bash revisar-instalador.sh
 sudo bash comun/00-paquetes.sh web
 sudo bash web/01-instalar-web.sh            # pide la línea de la CA, la clave de app_{{NN}} y crea el administrador de la app
 ```
@@ -201,6 +220,10 @@ Los comandos de **P1–P13** ya están en el módulo *Validación* (P1–P8 de l
 | P12 | App | registra `<script>alert(1)</script>` y `' OR '1'='1` → se muestra como texto |
 | P13 | web-{{NN}} | `DELETE FROM auditoria_app` con app_{{NN}} → *command denied* |
 
+**Evidencia real de la app → informe:** en la app entra como administrador o auditor → **Exportar evidencia** (descarga `evidencia-{{NN}}-….json`, sin contraseñas ni datos personales). En el sistema: *Validación y cierre* → **Importar evidencia de la app**. Completa *Obtenido* de P1 y P9–P13 (solo si está vacío) y agrega el registro a la bitácora. Las capturas igual se adjuntan a mano.
+
+**Borradores:** todo lo que viene precargado aparece atenuado con la etiqueta «borrador». Edítalo o márcalo «✓ Revisado» solo si coincide con tu evidencia real (salidas de auditd, tcpdump, nmap, respaldos). El panel de resumen cuenta lo que falta revisar y el PDF te avisa si quedan borradores o pruebas «Aprobada» sin resultado y captura.
+
 Registra **hallazgos** (falla, desviación, comportamiento esperado o riesgo) vinculados a RF/RNF y control NIST. Una prueba fallida bien documentada con su corrección no resta.
 
 ## Fase 9 · Evaluación final y PDF (criterio 4.1.6)
@@ -208,14 +231,14 @@ Registra **hallazgos** (falla, desviación, comportamiento esperado o riesgo) vi
 1. Completa CIA (impacto operativo), riesgos residuales (≥3, con impacto), Gobierno TI y mejoras (≥3, con control NIST y hallazgo de origen).
 2. Cambia el estado de tareas y controles a *Completada/Implementado* según corresponda: el panel recalcula el avance.
 3. **Generar PDF** → revisa portada y secciones 0–7.
-4. Exporta el JSON → `data/proyecto-{{NN}}.json` → commit y push. Cloudflare redepliega solo.
+4. Exporta el JSON → `data/proyecto-{{NN}}.json` → `bash instalador/verificar-secretos.sh` → commit y push. Cloudflare redepliega solo.
 
 ## Antes de la defensa
 
 - [ ] Iniciar el laboratorio AWS ≥ 30 min antes; instancias **running**.
 - [ ] web-{{NN}} usa IP elástica: no cambia al reiniciar el laboratorio (si la liberaste, actualiza `~/.ssh/config`, el README y *Implementación → URL de la app*).
 - [ ] Si cambió **tu** IP: en CloudShell `aws ec2 authorize-security-group-ingress --group-id <sg-web> --protocol tcp --port 22 --cidr <NUEVA_IP>/32` (y elimina la anterior); en web vuelve a ejecutar `sudo bash comun/01-hardening.sh web <NUEVA_IP>` (reescribe la regla SSH de {{FIREWALL}}). Hazlo **antes** de perder la sesión.
-- [ ] Tras reiniciar bd: `sudo bash bd/02-luks-respaldos.sh abrir` (o el respaldo nocturno falla — riesgo residual documentado).
+- [ ] Tras reiniciar el laboratorio, en bd-{{NN}}: `sudo bash bd/05-tras-reinicio.sh` (abre LUKS con tu frase, monta `/respaldos`, revisa el cron y ejecuta un respaldo si el último tiene más de 24 h). Al entrar por SSH verás un aviso si el volumen sigue cerrado. Copia el resumen que imprime a la bitácora (Área *Respaldo*).
 - [ ] Practica: modificar un dato en el sistema y regenerar el PDF; ejecutar cualquier prueba P1–P13 en vivo; mostrar el panel en vivo de la app (canal TLS web → bd).
 - [ ] Verifica que ninguna captura muestre llaves privadas, secreto/QR TOTP o códigos de emergencia.
 

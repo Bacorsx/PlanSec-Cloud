@@ -527,8 +527,9 @@ def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inici
     pools = {}
     datos = construir_datos(p, nn, nombre, github, inicio, pools)
     (destino / "data").mkdir(exist_ok=True)
-    (destino / "data" / f"proyecto-{nn}.json").write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
     (destino / "data" / f"diccionario-{nn}.json").write_text(json.dumps(construir_diccionario(p, nn, datos, pools), ensure_ascii=False, indent=1), encoding="utf-8")
+    marcar_borradores(datos)   # todo lo precargado queda como borrador hasta que el estudiante lo revise
+    (destino / "data" / f"proyecto-{nn}.json").write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tema_php = {"nombre_app": t["nombre_app"], "titulo": t["titulo"], "patron": t["patron"], "vocab": t.get("vocab", {}),
                 "padre": {k: t["padre"][k] for k in ("tabla", "titulo", "singular")} | {"campos": [list(c) for c in t["padre"]["campos"]]},
@@ -540,7 +541,18 @@ def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inici
     (destino / "instalador" / "llaves" / "LEEME.txt").write_text(
         f"Copia aquí SOLO las llaves PÚBLICAS: {ctx['U_ADMIN']}.pub, {ctx['U_DEV']}.pub, {ctx['U_AUDIT']}.pub\n"
         "Nunca subas llaves privadas al repositorio.\n", encoding="utf-8")
-    (destino / ".gitignore").write_text("instalador/aws/*.pem\ninstalador/aws/infra-*.env\n*.key\n*.pem\n.google_authenticator\n", encoding="utf-8")
+    (destino / ".gitignore").write_text(
+        "# Nunca versionar secretos ni configuraciones locales (ver instalador/verificar-secretos.sh)\n"
+        "instalador/aws/*.pem\ninstalador/aws/infra-*.env\n*.key\n*.pem\n*.ppk\nid_ed25519*\n!instalador/llaves/*.pub\n"
+        ".google_authenticator\ndb.ini\n*.ini.local\n.ti3062-*\n*.b64\nevidencia-*.json\n.env\n", encoding="utf-8")
+    (destino / ".gitattributes").write_text("* text=auto eol=lf\n*.png binary\n*.jpg binary\n*.pdf binary\n", encoding="utf-8")
+    (destino / ".githooks").mkdir(exist_ok=True)
+    gancho = destino / ".githooks" / "pre-push"
+    gancho.write_text((PLANT / "githooks" / "pre-push").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+    try:
+        os.chmod(gancho, 0o755)
+    except OSError:
+        pass
     (destino / "_headers").write_text("/*\n  X-Content-Type-Options: nosniff\n  X-Frame-Options: DENY\n  Referrer-Policy: strict-origin-when-cross-origin\n", encoding="utf-8")
 
     resumen = {"nn": nn, "estudiante": nombre, "tema": t["clave"], "app": t["nombre_app"], "sistema": p["nombre_sistema"], "paleta": pal["nombre"],
@@ -548,7 +560,29 @@ def generar(nn, nombre, github, salida, semilla="", tema=None, motor=None, inici
                "motor": m["clave"], "firewall": p["firewall"], "zona": p["zona"][0], "alternativo": p["alt"]["nombre"],
                "grupos": [ctx["G_ADMIN"], ctx["G_DEV"], ctx["G_AUDIT"]], "cron": p["cron"]}
     (destino / "instalador" / "perfil-variantes.json").write_text(json.dumps(resumen, ensure_ascii=False, indent=2), encoding="utf-8")
+    escribir_manifiesto(destino / "instalador")
     return destino, resumen
+
+
+def marcar_borradores(datos):
+    """Marca como borrador (_base) cada fila y campo de texto precargado; el sistema lo quita cuando el estudiante lo edita."""
+    for k, v in datos.items():
+        if isinstance(v, list) and k not in ("personal",):
+            for fila in v:
+                if isinstance(fila, dict):
+                    fila["_base"] = True
+    datos["_base_obj"] = {
+        "problema": [c for c in ("contexto", "actores", "procesos", "necesidades", "impacto") if datos.get("problema", {}).get(c)],
+        "seleccion": [c for c in ("justificacion", "gobierno", "zonaJustificacion") if datos.get("seleccion", {}).get(c)],
+        "informe": [c for c in ("proposito", "alcance", "escenario") if datos.get("informe", {}).get(c)],
+    }
+
+
+def escribir_manifiesto(instalador):
+    """SHA-256 de cada script y del esquema generados: revisar-instalador.sh detecta cambios no esperados."""
+    archivos = sorted(f for f in instalador.rglob("*") if f.is_file() and (f.suffix in (".sh", ".sql")))
+    lineas = [f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.relative_to(instalador).as_posix()}" for f in archivos]
+    (instalador / "MANIFIESTO.sha256").write_text("\n".join(lineas) + "\n", encoding="utf-8", newline="\n")
 
 
 def main():

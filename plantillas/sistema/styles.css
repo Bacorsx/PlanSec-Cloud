@@ -105,3 +105,11 @@ table.dic td:nth-child(5), table.dic td:nth-child(6), table.dic td:nth-child(7) 
 .chequeo li { margin: 4px 0; }
 #aviso { position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 20px); background: var(--primario); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 600; opacity: 0; pointer-events: none; transition: .25s; z-index: 50; }
 #aviso.visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Capas: borradores precargados y enlace a la app ---------- */
+tr.borrador td { background: color-mix(in srgb, #b7950b 7%, transparent); }
+tr.borrador td input, tr.borrador td textarea, tr.borrador td select { opacity: .78; }
+.campo.borrador textarea, .campo.borrador input { border-style: dashed; }
+.etq.borr { background: color-mix(in srgb, #b7950b 22%, transparent); color: #8a6d00; }
+.aviso-borr { color: #a6461a; font-weight: 600; }
+#enlace-app.deshabilitado { opacity: .5; pointer-events: none; }

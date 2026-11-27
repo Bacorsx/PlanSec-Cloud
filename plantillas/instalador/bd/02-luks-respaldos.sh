@@ -38,5 +38,14 @@ mkfs.ext4 -q -L respaldos /dev/mapper/$MAP
 mkdir -p /respaldos && mount /dev/mapper/$MAP /respaldos
 chown root:root /respaldos && chmod 700 /respaldos
 echo "$DEV" > $ESTADO
+# Aviso al iniciar sesión cuando el volumen quedó cerrado (AWS Academy detiene la instancia al cerrar el laboratorio)
+cat > /etc/update-motd.d/99-ti3062-luks <<'EOF'
+#!/bin/sh
+if ! mountpoint -q /respaldos; then
+  printf '\n\033[1;33m⚠ TI3062: /respaldos (LUKS) está CERRADO. Los respaldos diarios fallarán.\033[0m\n'
+  printf '  Ejecuta: sudo bash <repositorio>/instalador/bd/05-tras-reinicio.sh\n\n'
+fi
+EOF
+chmod 755 /etc/update-motd.d/99-ti3062-luks
 echo "== Evidencia"; cryptsetup luksDump "$DEV" | head -20; lsblk -f; df -h /respaldos
-echo -e "\n✅ /respaldos cifrado con LUKS2. Tras reiniciar: sudo bash $0 abrir"
+echo -e "\n✅ /respaldos cifrado con LUKS2. Tras cada reinicio del laboratorio: sudo bash $DIR/05-tras-reinicio.sh"

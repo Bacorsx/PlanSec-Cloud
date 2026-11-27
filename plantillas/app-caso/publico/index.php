@@ -150,6 +150,19 @@ try {
         foreach ($rows as $r) fputcsv($o, array_map('csv_seguro', array_merge([$r['id'], $r['padre_txt']], array_map(fn($c) => $r[$c], $cols), array_map(fn($c) => $r[$c] ?? '', $std), [$r['autor'] ?? '', local($r['creado_en'])])), ';');
         exit;
     }
+    if ($v === 'evidencia') {   // capa de enfoque → capa de informe: solo datos medidos, sin secretos
+        if (!in_array($_SESSION['rol'], ['admin', 'auditor'], true)) {
+            auditar('acceso_denegado', 'evidencia', 'Exportar evidencia requiere administrador o auditor');
+            throw new RuntimeException('Solo administración y auditoría pueden exportar evidencia.');
+        }
+        require $PRIV . '/evidencia.php';
+        $ev = evidencia_app();
+        auditar('exportar_evidencia', 'evidencia', count($ev['pruebas']) . ' pruebas, ' . count($ev['auditoria']) . ' tipos de evento');
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="evidencia-{{NN}}-' . gmdate('Ymd-His') . '.json"');
+        echo json_encode($ev, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+    }
 } catch (Throwable $e) { $err = fallo($e); }
 $msg = $_SESSION['msg'] ?? ''; unset($_SESSION['msg']);
 
@@ -179,6 +192,12 @@ function encabezado(string $titulo, array $nav, string $v): void {
 <div class="marco">
 <nav class="menu" aria-label="Secciones">
   <?php foreach ($nav as $k => $t): ?><a href="?v=<?= h($k) ?>"<?= $k === $v ? ' aria-current="page"' : '' ?>><?= h($t) ?></a><?php endforeach; ?>
+  <?php if (in_array($_SESSION['rol'], ['admin', 'auditor'], true)): ?>
+  <span class="separador etiqueta">Capa de informe</span>
+  <a href="https://ti3062-{{NN}}.pages.dev" target="_blank" rel="noopener noreferrer">Informe del proyecto ↗</a>
+  <a href="/gestion/" target="_blank" rel="noopener">Informe (copia en web-{{NN}}) ↗</a>
+  <a href="?v=evidencia">Exportar evidencia</a>
+  <?php endif; ?>
 </nav>
 <main>
 <?php }
